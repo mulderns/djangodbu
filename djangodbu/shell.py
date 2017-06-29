@@ -7,7 +7,7 @@ from itertools import chain, izip_longest
 from django.db.models import Model
 from terminalsize import get_terminal_size
 
-# TODO: add support for windows cli
+# TODO: add support for windows cli colors
 
 # COLORS FOR TERMINAL
 
