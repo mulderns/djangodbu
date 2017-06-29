@@ -5,6 +5,10 @@ Currently there is one helper routine to print out django model instances to con
 
 The output contains attributes and values with their type information.
 
+## Project url
+
+[djangodbu on github](https://github.com/mulderns/djangodbu)
+
 ## Installation
 
     $ pip install djangodbu
@@ -56,4 +60,3 @@ will produce colorized output:
                        type DoesNotExist: DoesNotExist
                    classobj Meta: Meta
                        type MultipleObjectsReturned: MultipleObjectsReturned
-
