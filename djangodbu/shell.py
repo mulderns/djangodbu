@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import inspect
 import pprint
 import re
@@ -7,8 +8,13 @@ from itertools import chain, izip_longest
 
 from django.db.models import Model
 from django.db.models.query import QuerySet
+from django.db.models.sql.query import Query
+
 
 from terminalsize import get_terminal_size
+
+from dbu.sql import print_query
+from dbu.utils import get_types
 
 # TODO: add support for windows cli
 
@@ -51,6 +57,7 @@ COLORS_CATEGORY = {
 
 def type_to_category_value(thing):
     if inspect.ismodule(thing): return ('CLASS', thing.__name__)
+    if isinstance(thing, types.TypeType): return ('CLASS', None)
     if inspect.isclass(thing): return ('CLASS', thing.__name__)
     if isinstance(thing, bool): return ('BOOL', (GREEN if thing else RED) + str(thing) + RESET)
     if isinstance(thing, int): return ('NUMBER', thing)
@@ -62,7 +69,7 @@ def type_to_category_value(thing):
     if isinstance(thing, dict): return ('LIST', len(thing))
     if isinstance(thing, tuple): return ('LIST', len(thing))
     if isinstance(thing, types.NoneType): return ('OTHER', None)
-    if isinstance(thing, types.TypeType): return ('OTHER', None)
+
     if str(type(thing)).find('RelatedManager') != -1:
         return ('RELATED', str(thing.count()))
     if isinstance(thing, types.BuiltinFunctionType) or isinstance(thing, types.BuiltinMethodType):
@@ -74,37 +81,105 @@ def type_to_category_value(thing):
         if str(type(thing)).find('Decimal') != -1:
             return ('NUMBER', thing.__str__())
     if isinstance(thing, Model): return ('RELATED', u"{} > '{}'".format(thing.id, thing.__unicode__() if hasattr(thing,'__unicode__') else thing.__str__()))
+    if isinstance(thing, QuerySet): return ('RELATED', str(thing.count()))
     if str(type(thing)).find('datetime') != -1:
         return ('DATE', thing.__str__())
     return ('OTHER', None)
 
 
-def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0):
+def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, data=None, enable_callable=False, values=None):
+    # print lists and such with pprint
     if type(obj) in (types.ListType, types.DictType, types.TupleType):
         pprint.pprint(obj, indent=2)
         return
 
+    # print sql
+    if isinstance(obj, Query):
+        print_query(obj)
+        return
+
+    # iterate querysets
     if isinstance(obj, QuerySet):
-        for item in obj:
-            #dorm(item, values_only=True, padding=4)
-            dorm(item, minimal=True)
+        if values is not None:
+            print ', '.join(values)
+            for row in obj.values('pk', *values):
+                _print_minimal_values(row, values)
+        else:
+            for item in obj:
+                _print_minimal(item, data=data, enable_callable=enable_callable)
         print u"= {}{}{}".format(RED, obj.count(), RESET)
         return
 
-    if minimal:
-        print u"{}{}{}: {}{}".format(WHITE, obj.id, BLACK_B, RESET, obj)
-        return
+    # else print orm debug
+    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding)
 
-    if values_only:
-        print u"{} : {}".format(obj, type(obj))
-    else:
-        print u"{} : {}".format(obj, type(obj))
+
+def _print_minimal_values(row, selected_values):
+    item_id = row.pop('pk')
+    values2 = []
+
+    for key in selected_values:
+        data = row.get(key)
+        if isinstance(data, str):
+            values2.append(unicode(data, 'utf-8', 'replace'))
+        else:
+            values2.append(unicode(data))
+
+    #try:
+    print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, ', '.join(values2))
+    #except Exception as e:
+    #    values2 = [unicode(value.decode('utf-8', 'replace')) for value in values2]
+    #    print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, ', '.join(values2))
+
+def _print_minimal_values_pprint(row, selected_values):
+    item_id = row.pop('pk')
+
+    print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, pprint.pformat(row))
+
+def _print_minimal(obj, data=None, enable_callable=False):
+    id = obj.id if hasattr(obj, 'id') else ''
+    value = id
+
+    # TODO: if values -> .values()
+    # TODO: lambda as data
+    if data and hasattr(obj, data):
+        attr = getattr(obj, data)
+        if not callable(attr):
+            value = attr
+        else:
+            if enable_callable:
+                value = attr()
+            else:
+                value = u'callable: {} {}'.format(type(attr), get_types(attr))
+
+    elif data is None and hasattr(obj, 'name'):
+        attr = getattr(obj, 'name')
+        if not callable(attr):
+            value = attr
+        else:
+            if enable_callable:
+                value = attr()
+            else:
+                value = u'callable: {} {}'.format(type(attr), get_types(attr))
+    elif data is None and hasattr(obj, '__str__'):
+        value = unicode(obj.__str__().decode('utf-8', 'replace'))
+
+    try:
+        print u"{}{}{}: {}{}".format(WHITE, id, BLACK_B, RESET, value)
+    except Exception as e:
+        value = unicode(value.decode('utf-8', 'replace'))
+        print u"{}{}{}: {}{}".format(WHITE, id, BLACK_B, RESET, value)
+
+
+
+def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0):
+    print u"{} : {}".format(obj, type(obj))
     categories = defaultdict(list)
     terminal_size, _ = get_terminal_size()
     type_max_width = 0
 
     for attr_name in dir(obj):
-        if attr_name.startswith('_') or attr_name == 'objects':
+        if (ignore_builtin and attr_name.startswith('_')) or attr_name == 'objects':
             continue
 
         attr = None
@@ -161,11 +236,11 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0):
 
     type_max_width_right = max([len(x[1]) for x in functions]) if len(functions) > 0 else 10
 
-    COLOR = COLORS_CATEGORY['FUNCTION'] if COLORS_CATEGORY.has_key(cat) else RESET
+    COLOR = COLORS_CATEGORY['FUNCTION'] if COLORS_CATEGORY.has_key('FUNCTION') else RESET
     #print cat
     for attr_name, attr_type, value in functions:
         if value is not None:
-            lines_right.append(u"{col1}{type:>{width}}{col2} {name}{rst}: {value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=value, width=type_max_width_rigth))
+            lines_right.append(u"{col1}{type:>{width}}{col2} {name}{rst}: {value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=value, width=type_max_width_right))
         else:
             lines_right.append(u"{col1}{type:>{width}}{col2} {name}{rst}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, width=type_max_width_right))
 
@@ -177,15 +252,27 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0):
     padding = ''.join([' ' for _ in range(padding)])
 
     if width_left - len(BLACK+RED+RESET) + width_right - len(BLACK+RED+RESET) > terminal_size:
+        # single column
         padr, padl = (type_max_width - type_max_width_right, 0) if type_max_width > type_max_width_right else (0, type_max_width_right - type_max_width)
         padr = ''.join([' ' for _ in range(padr)])
         padl = ''.join([' ' for _ in range(padl)])
 
         for right in lines_right:
-            print u"{padding}{:{width}}".format(right, width=width_right, padding=padr)
+            #print u"{padding}{:{width}}".format(right, width=width_right, padding=padr)
+            print u"{padding}{}".format(right, width=width_right, padding=padr)
         for left in lines_left:
-            print u"{padding}{:{width}}".format(left, width=width_left, padding=padl)
+            #print u"{padding}{:{width}}".format(left, width=width_left, padding=padl)
+            print u"{padding}{}".format(left, width=width_left, padding=padl)
     else:
+        # two columns
         for left, right in izip_longest(lines_left, lines_right, fillvalue=BLACK+RED+RESET):
             print u"{padding}{left:{width_left}} {right:{width_right}}".format(left=left, right=right, width_left=width_left, width_right=width_right, padding=padding)
 
+
+def dorme(*args, **kwargs):
+    import ipdb
+    try:
+        dorm(*args, **kwargs)
+    except Exception as e:
+        print e
+        ipdb.post_mortem()
