@@ -13,8 +13,8 @@ from django.db.models.sql.query import Query
 
 from terminalsize import get_terminal_size
 
-from dbu.sql import print_query
-from dbu.utils import get_types
+from sql import print_query
+from utils import get_types
 
 # TODO: add support for windows cli
 
