@@ -102,8 +102,17 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, 
     if isinstance(obj, QuerySet):
         if values is not None:
             print ', '.join(values)
+            lines = []
+            col_max = ['0'] * len(values)
             for row in obj.values('pk', *values):
-                _print_minimal_values(row, values)
+                item_id, datas = _print_minimal_values2(row, values)
+                col_max = [max(x, key=len) for x in zip(col_max, datas)]
+                lines.append((item_id, datas))
+
+            for item_id, datas in lines:
+                print u"{col1}{id}{col2}: {reset}{values}".format(col1=WHITE, id=item_id, col2=BLACK_B, reset=RESET, values=u'  '.join(
+                    [u"{:{width}}".format(l if l is not None else '', width=len(w)) for l, w in zip(datas, col_max)]
+                ))
         else:
             for item in obj:
                 _print_minimal(item, data=data, enable_callable=enable_callable)
@@ -130,6 +139,25 @@ def _print_minimal_values(row, selected_values):
     #except Exception as e:
     #    values2 = [unicode(value.decode('utf-8', 'replace')) for value in values2]
     #    print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, ', '.join(values2))
+
+def _print_minimal_values2(row, selected_values):
+    item_id = row.pop('pk')
+    values2 = []
+
+    for key in selected_values:
+        data = row.get(key)
+        if isinstance(data, str):
+            values2.append(unicode(data.decode('utf-8', 'replace'), 'utf-8', 'replace') + u'X')
+        elif isinstance(data, unicode):
+            #values2.append(data.encode('utf-8', 'replace') + u'Z')
+            #values2.append(data.encode('utf-8', 'replace').decode('utf-8','replace'))
+            #print data
+            values2.append(data)
+        else:
+            values2.append(unicode(data))
+
+    return (item_id, values2)
+
 
 def _print_minimal_values_pprint(row, selected_values):
     item_id = row.pop('pk')
