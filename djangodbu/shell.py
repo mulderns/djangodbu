@@ -14,7 +14,7 @@ from django.db.models.sql.query import Query
 from terminalsize import get_terminal_size
 
 from sql import print_query
-from utils import get_types
+#from utils import get_types
 
 # TODO: add support for windows cli
 
@@ -178,7 +178,7 @@ def _print_minimal(obj, data=None, enable_callable=False):
             if enable_callable:
                 value = attr()
             else:
-                value = u'callable: {} {}'.format(type(attr), get_types(attr))
+                value = u'callable: {} {}'.format(type(attr))
 
     elif data is None and hasattr(obj, 'name'):
         attr = getattr(obj, 'name')
@@ -188,7 +188,7 @@ def _print_minimal(obj, data=None, enable_callable=False):
             if enable_callable:
                 value = attr()
             else:
-                value = u'callable: {} {}'.format(type(attr), get_types(attr))
+                value = u'callable: {} {}'.format(type(attr))
     elif data is None and hasattr(obj, '__str__'):
         value = unicode(obj.__str__().decode('utf-8', 'replace'))
 
