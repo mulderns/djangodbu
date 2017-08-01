@@ -525,6 +525,12 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, no_color=
                 if tallest_column_height < current_column_height:
                     tallest_column_height = current_column_height
 
+        else:
+            # we don't have space for new column
+            # ump this column to current column
+            current_column_height += group.get_height()
+            current_column.append(group)
+            current_column_width = calculate_width(current_column)
 
     # place the last open column to columns
     columns.append(current_column)
