@@ -125,6 +125,36 @@ def _format_traceback(tb):
     #return '\n \033[0;35m>\033[0m '.join("\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3} \033[0;36m{module}\033[0;35m:\033[0m {text}".format(file=os.path.basename(frame[0]), linenum=frame[1], module=frame[2], text=frame[3]) for frame in tb if not trace_exclude_paths.search(frame[0]))
     return '\n \033[0;35m>\033[0m '.join("\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3} \033[0;36m{module}\033[0m {text}".format(file=os.path.basename(frame[0]), linenum=frame[1], module=frame[2], text=frame[3]) for frame in tb if not trace_exclude_paths.search(frame[0]))
 
+def _format_traceback2(tb):
+    # filea:123 ...
+    # filea:123 > 223 > fileb:323 ....
+    # filec:123 > filed:232 ...
+    # frame > frame > frame
+
+    # filter frames
+    filtered_tb = [frame for frame in tb if not trace_exclude_paths.search(frame[0])]
+
+    last_index = len(filtered_tb) - 1
+
+    output_frames = []
+    prev_file = None
+    for i, frame in enumerate(filtered_tb):
+        output = ''
+        simple_file = os.path.basename(frame[0])
+        if simple_file != prev_file:
+            output = u"\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3}".format(file=os.path.basename(frame[0]), linenum=frame[1])
+            prev_file = simple_file
+        else:
+            output = u"\033[0;37m{linenum:<3}".format(linenum=frame[1])
+
+        if i == last_index:
+            output += u" \033[0;36m{module}\033[0m {text}".format(module=frame[2], text=frame[3])
+
+        output_frames.append(output)
+
+    return ' \033[0;35m>\033[0m '.join(output_frames)
+
+
 def _get_location(tb):
     relevant_frames = [frame for frame in tb if not trace_exclude_paths.search(frame[0])]
     if len(relevant_frames) == 0:
@@ -134,7 +164,9 @@ def _get_location(tb):
     return "\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3} \033[0;36m{module}\033[0m {text}".format(file=os.path.basename(frame[0]), linenum=frame[1], module=frame[2], text=frame[3])
 
 
-def sqlcount(data, filtersmall=False):
+_SQL_ID_PATTERN = re.compile(r'=\s*\d+')
+
+def sqlcount(data, filtersmall=False, include_sql=False):
     '''
     "Count SQL queries": {
 		"prefix": "dbusqlcount",
@@ -147,10 +179,7 @@ def sqlcount(data, filtersmall=False):
     counts = defaultdict(lambda: {'count':0.0, 'time':0.0, 'location': set()})
 
     for row in data:
-        #m = md5()
-        #m.update(row['sql'])
-        #key = m.hexdigest()
-        key = row['sql']
+        key = _SQL_ID_PATTERN.sub('= ?', row['sql'])
         counts[key]['count'] += 1.0
 
         time = float(row['time'])
@@ -161,17 +190,19 @@ def sqlcount(data, filtersmall=False):
 
         counts[key]['time'] += time
         if row.has_key('trace'):
-            counts[key]['location'].add(_format_traceback(row['trace']))
+            counts[key]['location'].add(_format_traceback2(row['trace']))
 
-    results = [(val['count'], val['time'], val['location']) for key, val in counts.items() if val['time'] > 0.01 or not filtersmall]
+    results = [(val['count'], val['time'], val['location'], key) for key, val in counts.items() if val['time'] > 0.01 or not filtersmall]
 
     results.sort(key=lambda x: (x[0], x[1]), reverse=True)
 
     out = ''
-    for count, time, location in results:
+    for count, time, location, sql in results:
         if '' in location:
             location.remove('')
         out += "{: 4} / {:05.3f} [{}]: {}\n".format(int(count), time, _minilogbars(time), _indent_newlines('\n'.join(location), 22))
+        if include_sql:
+            out += "{}\n\n".format(colorize_sql(sql))
     log.info('counts: \n{}'.format(out))
 
 def stack_position():
@@ -190,7 +221,17 @@ def stack_position():
 # STACK
 def format_stack():
     # file, ln, function, text
-
     for frame in traceback.extract_stack():
         simple_file = os.path.basename(frame[0])
         print u"{m:>20.20}:{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
+
+def format_stack2():
+    # file, ln, function, text
+    prev_file
+    for frame in traceback.extract_stack():
+        simple_file = os.path.basename(frame[0])
+        if simple_file == prev_file:
+            print u"{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
+        else:
+            print u"{m:>20.20}:{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
+        prev_file = simple_file

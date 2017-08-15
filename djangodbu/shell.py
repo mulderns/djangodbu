@@ -6,17 +6,16 @@ import re
 import types
 from collections import defaultdict
 from itertools import chain, izip_longest
+from math import ceil
 
 from django.db.models import Model
 from django.db.models.query import QuerySet
 from django.db.models.sql.query import Query, RawQuery
 
-
 from terminalsize import get_terminal_size
 
 from sql import print_query
 
-# from utils import ruler
 
 # TODO: add support for windows cli
 
@@ -181,10 +180,10 @@ def type_to_category_value(thing):
     if hasattr(thing, '__class__'): return ('CLASS', thing.name if hasattr(thing,'name') else None)
     return ('OTHER', repr(thing))
 
-
-def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, data=None, enable_callable=False, values=None, v=None, no_color=False):
+# TODO: paginate=True/False
+def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None):
     # print lists and such with pprint
-    if type(obj) in (types.ListType, types.DictType, types.TupleType):
+    if type(obj) in (types.ListType, types.DictType, types.TupleType) or isinstance(obj, set):
         pprint.pprint(obj, indent=2)
         return
 
@@ -201,6 +200,12 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, 
     #if isinstance(thing, types.ModuleType):
     #    pass
 
+    autoquery_queryset = False
+    if autoquery and not isinstance(obj, QuerySet) and hasattr(obj, 'model') and hasattr(obj, 'all'):
+        # print "AUTOQUERYING"
+        obj = obj.all()
+        autoquery_queryset = True
+
     # iterate querysets
     if isinstance(obj, QuerySet):
         if v is not None and values is None:
@@ -208,51 +213,148 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, 
 
         if values is not None:
             print obj.model
-            lines = []
-            col_max = ['0'] * len(values)
-            for row in obj.values('pk', *values):
-                item_id, datas = _print_minimal_values2(row, values)
-                col_max = [max(x, key=len) for x in zip(col_max, datas)]
-                lines.append(('{:6}'.format(item_id), datas))
+            # TODO: print column headers on continuation line
+            results_per_page = get_terminal_size()[1]-3
+            terminal_width = get_terminal_size()[0]
+            pagenum = 0
+            for total, done, page in paginateQuerySet(obj, results_per_page):
+                if pagenum != 0:
+                    if pagenum == -1:
+                        break
+                    if done/results_per_page < pagenum and done < total:
+                        continue
+                    else:
+                        pagenum = 0
 
-            #print ''.join( v, w in zip(values, col_max) )
-            print '    id: ' + u'  '.join([u"{:{width}.{width}}".format(squish_to_size(l, len(w)) if l is not None else '', width=len(w)) for l, w in zip(values, col_max)])
 
-            print ''.join(['-' for _ in xrange(get_terminal_size()[0])])
+                lines = []
+                col_max = ['0'] * len(values)
+                for row in page.values('pk', *values):
+                    item_id, datas = _print_minimal_values(row, values)
+                    col_max = [max(x, key=len) for x in zip(col_max, datas)]
+                    lines.append(('{:6}'.format(item_id), datas))
+
+                #print ''.join( v, w in zip(values, col_max) )
+                print '    id: ' + u'  '.join([u"{:{width}.{width}}".format(squish_to_size(l, len(w)) if l is not None else '', width=len(w)) for l, w in zip(values, col_max)])
+
+                print ''.join(['-' for _ in xrange(get_terminal_size()[0])])
 
 
-            for item_id, datas in lines:
-                print u"{col1}{id}{col2}: {reset}{values}".format(col1=WHITE, id=item_id, col2=BLACK_B, reset=RESET, values=u'  '.join(
-                    [u"{:{width}}".format(l if l is not None else '', width=len(w)) for l, w in zip(datas, col_max)]
-                ))
+                for item_id, datas in lines:
+                    print u"{col1}{id}{col2}: {reset}{values}".format(col1=WHITE, id=item_id, col2=BLACK_B, reset=RESET, values=u'  '.join(
+                        [u"{:{width}}".format(l if l is not None else '', width=len(w)) for l, w in zip(datas, col_max)]
+                    ))
+                if done < total:
+                    try:
+                        while True:
+                            userinput = raw_input("-- {} ({}) / {} ({}) -- ".format(done, done/results_per_page, total, int(ceil(total/float(results_per_page)))))
+                            if userinput.startswith('q'):
+                                pagenum = -1
+                                break
+                            try:
+                                pagenum = int(userinput)
+                                if done/results_per_page >= pagenum:
+                                    print "paging error: can't go back"
+                                    pagenum = 0
+
+                                elif pagenum > int(ceil(total/float(results_per_page))):
+                                    print "paging error: no such page"
+                                    pagenum = 0
+                                else:
+                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    break
+                            except Exception as e:
+                                if userinput == '':
+                                    pagenum = 0
+                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    break
+                                print 'paging error: could not parse page number', len(userinput)
+                                pass
+
+                    except KeyboardInterrupt as e:
+                        break
         else:
-            for item in obj:
-                _print_minimal(item, data=data, enable_callable=enable_callable)
+            results_per_page = get_terminal_size()[1]-1
+            terminal_width = get_terminal_size()[0]
+            pagenum = 0
+            for total, done, page in paginateQuerySet(obj, results_per_page):
+                if pagenum != 0:
+                    if pagenum == -1:
+                        break
+                    if done/results_per_page < pagenum and done < total:
+                        continue
+                    else:
+                        pagenum = 0
+
+
+                for item in page:
+                    if callable is not None:
+                        _print_minimal_callable(item, callable_prop=callable)
+                    else:
+                        # TODO: separate
+                        _print_minimal(item)
+
+                if done < total:
+                    try:
+                        while True:
+                            userinput = raw_input("-- {} ({}) / {} ({}) -- ".format(done, done/results_per_page, total, int(ceil(total/float(results_per_page)))))
+                            if userinput.startswith('q'):
+                                pagenum = -1
+                                break
+                            try:
+                                pagenum = int(userinput)
+                                if done/results_per_page >= pagenum:
+                                    print "paging error: can't go back"
+                                    pagenum = 0
+
+                                elif pagenum > int(ceil(total/float(results_per_page))):
+                                    print "paging error: no such page"
+                                    pagenum = 0
+                                else:
+                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    break
+                            except Exception as e:
+                                if userinput == '':
+                                    pagenum = 0
+                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    break
+                                print 'paging error: could not parse page number', len(userinput)
+                                pass
+
+                    except KeyboardInterrupt as e:
+                        break
+
         print u"= {}{}{}".format(RED, obj.count(), RESET)
+        if (
+            autoquery
+            and v is None
+            and values is None
+            and callable is None
+            and autoquery_queryset
+            and obj.count() == 1
+        ):
+            _print_orm(obj.first(), ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate)
+
         return
 
     # else print orm debug
-    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, no_color=no_color)
+    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate)
 
+def paginateQuerySet(queryset, pagerowcount, autosense=True):
+    total = queryset.count()
+    # print "paginating {}/{}".format(total, pagerowcount)
+
+    # autosense paginates only when output is more than 2.5 x screen size
+    if autosense and total / float(pagerowcount) <= 2.5:
+        yield total, total, queryset
+
+    else:
+        done = 0
+        while done < total:
+            yield total, min(done + pagerowcount, total), queryset[done:done + pagerowcount]
+            done += pagerowcount
 
 def _print_minimal_values(row, selected_values):
-    item_id = row.pop('pk')
-    values2 = []
-
-    for key in selected_values:
-        data = row.get(key)
-        if isinstance(data, str):
-            values2.append(unicode(data, 'utf-8', 'replace'))
-        else:
-            values2.append(unicode(data))
-
-    #try:
-    print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, ', '.join(values2))
-    #except Exception as e:
-    #    values2 = [unicode(value.decode('utf-8', 'replace')) for value in values2]
-    #    print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, ', '.join(values2))
-
-def _print_minimal_values2(row, selected_values):
     item_id = row.pop('pk')
     values2 = []
 
@@ -270,44 +372,60 @@ def _print_minimal_values2(row, selected_values):
 
     return (item_id, values2)
 
+# def _print_minimal_values_pprint(row, selected_values):
+#     item_id = row.pop('pk')
+#     print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, pprint.pformat(row))
 
-def _print_minimal_values_pprint(row, selected_values):
-    item_id = row.pop('pk')
-    print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, pprint.pformat(row))
+def _print_minimal_callable(obj, callable_prop):
+    _id = obj.id if hasattr(obj, 'id') else ''
+    value = _id
 
-def _print_minimal(obj, data=None, enable_callable=False):
-    id = obj.id if hasattr(obj, 'id') else ''
-    value = id
+    if isinstance(callable_prop, types.LambdaType):
+        value = callable_prop(obj)
 
-    # TODO: if values -> .values()
-    # TODO: lambda as data
-    if data and hasattr(obj, data):
-        attr = getattr(obj, data)
+    elif callable_prop and hasattr(obj, callable_prop):
+        attr = getattr(obj, callable_prop)
         if not callable(attr):
             value = attr
         else:
-            if enable_callable:
-                value = attr()
-            else:
-                value = u'callable: {} '.format(type(attr))
+            value = attr()
 
-    elif data is None and hasattr(obj, 'name'):
+    elif callable_prop is None and hasattr(obj, 'name'):
         attr = getattr(obj, 'name')
         if not callable(attr):
             value = attr
         else:
-            if enable_callable:
-                value = attr()
-            else:
-                value = u'callable: {} '.format(type(attr))
-    elif data is None and hasattr(obj, '__str__'):
+            value = attr()
+
+    elif callable_prop is None and hasattr(obj, '__str__'):
         value = unicode(obj.__str__().decode('utf-8', 'replace'))
 
     try:
-        print u"{}{}{}: {}{}".format(WHITE, id, BLACK_B, RESET, value)
+        print u"{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, value)
     except Exception as e:
         value = unicode(value.decode('utf-8', 'replace'))
-        print u"{}{}{}: {}{}".format(WHITE, id, BLACK_B, RESET, value)
+        print u"{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, value)
+
+def _print_minimal(obj):
+    _id = obj.id if hasattr(obj, 'id') else ''
+    value = _id
+
+    if hasattr(obj, 'name'):
+        attr = getattr(obj, 'name')
+        if not callable(attr):
+            value = attr
+
+    elif hasattr(obj, '__str__'):
+        value = unicode(obj.__str__().decode('utf-8', 'replace'))
+
+    elif hasattr(obj, '__unicode__'):
+        value = obj.__unicode__()
+
+    try:
+        print u"{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, value)
+    except Exception as e:
+        value = unicode(value.decode('utf-8', 'replace'))
+        print u"{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, value)
 
 
 def dorme(*args, **kwargs):
@@ -325,11 +443,21 @@ def strip_ansi(line):
     return ansisequence.sub('', line)
 
 def lenesc(line):
+    if line is None:
+        return 0
     return len(ansisequence.sub('', line))
+
+def lenescU(line):
+    if line is None:
+        return 0
+    if isinstance(line, unicode) or isinstance(line, str):
+        return lenesc(line)
+    return len(u"{}".format(line))
 
 def ansilen(line):
     return len(line) - lenesc(line)
 
+# TODO: retain first letter even if vocal
 def squish_to_size(string, size):
     re_voc = re.compile(r'[aeiouyåäö]')
     re_con = re.compile(r'[bcdfghjklmnpqrstvwxz]')
@@ -363,7 +491,7 @@ def squish_to_size(string, size):
 
 
 def dormnc(*args, **kwargs):
-    dorm(*args, no_color=True, **kwargs)
+    dorm(*args, color=False, **kwargs)
 
 
 class Category(object):
@@ -376,6 +504,12 @@ class Category(object):
     def update_max_width(self, width):
         if width > self.type_max_width:
             self.type_max_width = width
+
+    def __unicode__(self):
+        return u"{} {}".format(self.category, self.type_max_width)
+
+    def __str__(self):
+        return "hello"
 
 
 class Group(object):
@@ -391,28 +525,35 @@ class Group(object):
         height = sum([len(c.lines) for c in self.categories])
         return height
 
+    def __unicode__(self):
+        return u"cats:{} width:{}".format(len(self.categories), self.width)
+
+    def __str__(self):
+        return "hello"
+
 
 def calculate_width(groups):
-    #type_max_width = max([c.type_max_width for c in [g.categories for g in groups]])
-    type_max_width = 0
-    for g in groups:
-        for c in g.categories:
-            if c.type_max_width > type_max_width:
-                type_max_width = c.type_max_width
+    temp = [c.type_max_width for g in groups for c in g.categories]
+    type_max_width = max(temp) if temp else 0
 
-    # g_w + t_mw - g_c_mw
     width = 0
     for group in groups:
-        _max = max([c.type_max_width for c in group.categories]) if group.categories else 0
-        result = group.width + (type_max_width - _max)
-
-        #result = group.width + (type_max_width - max([c.type_max_width for c in group.categories]))
+        # max type + max value
+        if not group.categories:
+            return 0
+        # gmtw = max([cat.type_max_width for cat in group.categories])
+        gmvw = max([len(attr_name) + (lenesc(u"{}".format(val)) if val else -2) + 2 for cat in group.categories for attr_name, _, val in cat.attr_list])
+        # width = gmtw + 1 + gmvw
+        # gmtw = type_max_width
+        result = type_max_width + 1 + gmvw
         width = result if result > width else width
     return width
 
-def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, no_color=False):
-    colors = NOCOLORS() if no_color else COLORS()
-    colors_category = NOCOLORS_CATEGORY if no_color else COLORS_CATEGORY
+
+# TODO: truncate_value / line to monitorwidth
+def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None):
+    colors = NOCOLORS() if not color else COLORS()
+    colors_category = NOCOLORS_CATEGORY if not color else COLORS_CATEGORY
 
     # print object identifier
     print u"{} : {}".format(obj, type(obj))
@@ -433,6 +574,9 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, no_color=
 
         cat, val = type_to_category_value(attr)
 
+        if val and truncate and lenescU(val) > truncate:
+            val = (u'{}'.format(val))[:truncate-2] + BLACK_B + '..'
+
         # shorten some common types
         match = re.search(RE_STRIP_TYPE, str(type(attr)))
         attr_type = match.group(1) if match else str(type(obj))
@@ -451,13 +595,18 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, no_color=
         categories[cat].update_max_width(len(attr_type))
         categories[cat].attr_list.append((attr_name, attr_type, val))
 
-    # then when we have the type_max_width we can build the lines
+    # remove builtin if preset
+    if ignore_builtin and categories.has_key('BUILTIN'):
+        categories.pop('BUILTIN')
 
+    # then when we have the type_max_width we can build the lines
     for cat, category in categories.iteritems():
         COLOR = colors_category[cat] if colors_category.has_key(cat) else colors.RESET
         lines = []
 
         for attr_name, attr_type, value in category.attr_list:
+            # if truncate and value:
+            #     value = (u'{}'.format(value))[:truncate]
             lines.append(u"{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=(u': {}'.format(value) if value else ''), width=category.type_max_width))
 
         categories[cat].lines = lines
@@ -514,9 +663,10 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, no_color=
 
             else:
                 # move current_column to output
-                columns.append(current_column)
-                width_used += current_column_width
-                output_column_widths.append(current_column_width)
+                if current_column: # skip if empty
+                    columns.append(current_column)
+                    width_used += current_column_width
+                    output_column_widths.append(current_column_width)
 
                 # create new_column from this group
                 current_column = [group]
@@ -558,16 +708,16 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, no_color=
                     output_lines.append(u'{pad}{line}'.format(pad=pad, line=line))
         output_columns.append(output_lines)
 
-
     # print output columns
     for line in izip_longest(*reversed(output_columns), fillvalue=''):
         for column, width in zip(line, reversed(output_column_widths)):
             # count number of escapecharacters and add it to width
-            if no_color:
+            if not color:
                 ansi = ansilen(column)
-                sys.stdout.write(strip_ansi(u'{column:{column_width}}'.format(column=column, column_width=width + ansi+1)))
+                sys.stdout.write(strip_ansi(u'{column:{column_width}.{column_width}}'.format(column=column, column_width=min(width, terminal_width-1) + ansi + 1)))
             else:
                 ansi = ansilen(column)
-                sys.stdout.write(u'{column:{column_width}}'.format(column=column, column_width=width + ansi+1))
+                sys.stdout.write(u'{column:{column_width}}'.format(column=column, column_width=min(width, terminal_width-1) + ansi + 1))
         sys.stdout.write('\n')
 
+# from .utils import ruler
