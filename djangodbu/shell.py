@@ -180,8 +180,39 @@ def type_to_category_value(thing):
     if hasattr(thing, '__class__'): return ('CLASS', thing.name if hasattr(thing,'name') else None)
     return ('OTHER', repr(thing))
 
+
 # TODO: paginate=True/False
-def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None):
+# TODO: search -> search dicts / lists ?
+def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None):
+    """
+Debug django ORM. pretty prints:
+  - Model instances
+    + attribute coloring + grouping
+    + attribute values
+    + print in parallel columns (if space)
+  - QuerySets
+    + print all rows in queryset
+    + prints selected values (in values=[] fashion) or value from 'callable'
+    + paginate, with skipt to page
+  - Querys
+    + syntax highlight
+  - List / Dict / Tuple through pprint
+
+Args:
+    obj (object): Object to print.
+    ignore_builtin (bool): Skip attributes starting with '_'.  (default True)
+    values(list): List of values to print. ['name','price']
+    v (string): Shorthand for values in one string. 'name,price'
+    callable (string | labmda): attribute name of a function to call (to get a value) for each row in queryset
+    color (bool): whether to print ansi color sequences. (default True)
+    truncate (int): truncate value lines of model instance to this length. (default None)
+    autoquery (bool): Automatically print related as querysets and if queryset contains only 1 record print the object. (default True)
+    search (string): Include only attributes matching the search
+    s (string): Shorthand for search.
+
+Returns:
+    None
+    """
     # print lists and such with pprint
     if type(obj) in (types.ListType, types.DictType, types.TupleType) or isinstance(obj, set):
         pprint.pprint(obj, indent=2)
@@ -228,22 +259,41 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, 
 
 
                 lines = []
-                col_max = ['0'] * len(values)
-                for row in page.values('pk', *values):
-                    item_id, datas = _print_minimal_values(row, values)
-                    col_max = [max(x, key=len) for x in zip(col_max, datas)]
-                    lines.append(('{:6}'.format(item_id), datas))
+                col_max = ['0'] * (len(values) if callable is None else len(values) + 1)
+                if callable:
+                    for row, row_object in zip(page.values('pk', *values), page):
+                        callable_value = get_callable_value(row_object, callable)
+                        item_id, datas = _print_minimal_values(row, values, additional=callable_value)
+                        col_max = [max(x, key=len) for x in zip(col_max, datas)]
+                        lines.append(('{:6}'.format(item_id), datas))
+                else:
+                    for row in page.values('pk', *values):
+                        item_id, datas = _print_minimal_values(row, values)
+                        col_max = [max(x, key=len) for x in zip(col_max, datas)]
+                        lines.append(('{:6}'.format(item_id), datas))
 
                 #print ''.join( v, w in zip(values, col_max) )
-                print '    id: ' + u'  '.join([u"{:{width}.{width}}".format(squish_to_size(l, len(w)) if l is not None else '', width=len(w)) for l, w in zip(values, col_max)])
 
-                print ''.join(['-' for _ in xrange(get_terminal_size()[0])])
+                if callable:
+                    values.append(callable if isinstance(callable, (str, unicode)) else 'callable')
+                    print u'    id: ' + u'  '.join([u"{:{width}.{width}}".format(squish_to_size(l, len(w)) if l is not None else u'', width=len(w)) for l, w in zip(values, col_max)])
+                    values.pop()
+                else:
+                    print u'    id: ' + u'  '.join([u"{:{width}.{width}}".format(squish_to_size(l, len(w)) if l is not None else u'', width=len(w)) for l, w in zip(values, col_max)])
+
+                print u''.join(['-' for _ in xrange(get_terminal_size()[0])])
 
 
                 for item_id, datas in lines:
-                    print u"{col1}{id}{col2}: {reset}{values}".format(col1=WHITE, id=item_id, col2=BLACK_B, reset=RESET, values=u'  '.join(
-                        [u"{:{width}}".format(l if l is not None else '', width=len(w)) for l, w in zip(datas, col_max)]
-                    ))
+                    try:
+                        print u"{col1}{id}{col2}: {reset}{values}".format(col1=WHITE, id=item_id, col2=BLACK_B, reset=RESET, values=u'  '.join(
+                            [u"{:{width}}".format(l if l is not None else u'', width=len(w)) for l, w in zip(datas, col_max)]
+                        ))
+                    except UnicodeDecodeError as e:
+                        print u"{col1}{id}{col2}: {reset}{values}".format(col1=WHITE, id=item_id, col2=BLACK_B, reset=RESET, values=u'  '.join(
+                            [u"{:{width}}".format(l.decode('utf-8','replace') if l is not None else u'', width=len(w)) for l, w in zip(datas, col_max)]
+                        ))
+
                 if done < total:
                     try:
                         while True:
@@ -261,12 +311,12 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, 
                                     print "paging error: no such page"
                                     pagenum = 0
                                 else:
-                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    # print "\r\033[F" + u''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
                                     break
                             except Exception as e:
                                 if userinput == '':
                                     pagenum = 0
-                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    # print "\r\033[F" + u''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
                                     break
                                 print 'paging error: could not parse page number', len(userinput)
                                 pass
@@ -311,12 +361,12 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, 
                                     print "paging error: no such page"
                                     pagenum = 0
                                 else:
-                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    # print "\r\033[F" + u''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
                                     break
                             except Exception as e:
                                 if userinput == '':
                                     pagenum = 0
-                                    print "\r\033[F" + ''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
+                                    # print "\r\033[F" + u''.join([u' ' for _ in xrange(terminal_width-4)]) + '\r',
                                     break
                                 print 'paging error: could not parse page number', len(userinput)
                                 pass
@@ -338,7 +388,9 @@ def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, 
         return
 
     # else print orm debug
-    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate)
+    if search is None and s is not None:
+        search = s
+    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate, search=search)
 
 def paginateQuerySet(queryset, pagerowcount, autosense=True):
     total = queryset.count()
@@ -354,12 +406,14 @@ def paginateQuerySet(queryset, pagerowcount, autosense=True):
             yield total, min(done + pagerowcount, total), queryset[done:done + pagerowcount]
             done += pagerowcount
 
-def _print_minimal_values(row, selected_values):
-    item_id = row.pop('pk')
+
+def _print_minimal_values(values_row, selected_values, additional=None):
+    '''values_row has contents of qs.values(...)'''
+    item_id = values_row.pop('pk')
     values2 = []
 
     for key in selected_values:
-        data = row.get(key)
+        data = values_row.get(key)
         if isinstance(data, str):
             values2.append(unicode(data.decode('utf-8', 'replace'), 'utf-8', 'replace') + u'X')
         elif isinstance(data, unicode):
@@ -370,11 +424,43 @@ def _print_minimal_values(row, selected_values):
         else:
             values2.append(unicode(data))
 
+    if additional is not None:
+        values2.append(additional)
+
     return (item_id, values2)
 
 # def _print_minimal_values_pprint(row, selected_values):
 #     item_id = row.pop('pk')
 #     print u"{}{}{}: {}{}".format(WHITE, item_id, BLACK_B, RESET, pprint.pformat(row))
+
+# TODO: deduplicate in print_minimal_callable
+def get_callable_value(obj, callable_prop):
+    _id = obj.id if hasattr(obj, 'id') else ''
+    value = _id
+
+    if isinstance(callable_prop, types.LambdaType):
+        value = callable_prop(obj)
+
+    elif callable_prop and hasattr(obj, callable_prop):
+        attr = getattr(obj, callable_prop)
+        if not callable(attr):
+            value = attr
+        else:
+            value = attr()
+
+    elif callable_prop is None and hasattr(obj, 'name'):
+        attr = getattr(obj, 'name')
+        if not callable(attr):
+            value = attr
+        else:
+            value = attr()
+
+    elif callable_prop is None and hasattr(obj, '__str__'):
+        value = unicode(obj.__str__().decode('utf-8', 'replace'))
+
+    # print value
+
+    return value
 
 def _print_minimal_callable(obj, callable_prop):
     _id = obj.id if hasattr(obj, 'id') else ''
@@ -406,7 +492,7 @@ def _print_minimal_callable(obj, callable_prop):
         value = unicode(value.decode('utf-8', 'replace'))
         print u"{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, value)
 
-def _print_minimal(obj):
+def _print_minimal(obj, annotation=None):
     _id = obj.id if hasattr(obj, 'id') else ''
     value = _id
 
@@ -422,10 +508,10 @@ def _print_minimal(obj):
         value = obj.__unicode__()
 
     try:
-        print u"{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, value)
+        print u"{}{}{}: {}{}  {}{}{}".format(WHITE, _id, BLACK_B, RESET, value, BLACK_B, annotation if annotation is not None else '', RESET)
     except Exception as e:
         value = unicode(value.decode('utf-8', 'replace'))
-        print u"{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, value)
+        print u"{}{}{}: {}{}  {}{}{}".format(WHITE, _id, BLACK_B, RESET, value, BLACK_B, annotation if annotation is not None else '', RESET)
 
 
 def dorme(*args, **kwargs):
@@ -542,7 +628,11 @@ def calculate_width(groups):
         if not group.categories:
             return 0
         # gmtw = max([cat.type_max_width for cat in group.categories])
-        gmvw = max([len(attr_name) + (lenesc(u"{}".format(val)) if val else -2) + 2 for cat in group.categories for attr_name, _, val in cat.attr_list])
+        try:
+            gmvw = max([len(attr_name) + (lenesc(u"{}".format(val)) if val else -2) + 2 for cat in group.categories for attr_name, _, val in cat.attr_list])
+        except:
+            gmvw = max([len(attr_name) + (lenesc("{}".format(val)) if val else -2) + 2 for cat in group.categories for attr_name, _, val in cat.attr_list])
+
         # width = gmtw + 1 + gmvw
         # gmtw = type_max_width
         result = type_max_width + 1 + gmvw
@@ -550,8 +640,8 @@ def calculate_width(groups):
     return width
 
 
-# TODO: truncate_value / line to monitorwidth
-def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None):
+# TODO: fix unicode / str : convert all str to unicode
+def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None):
     colors = NOCOLORS() if not color else COLORS()
     colors_category = NOCOLORS_CATEGORY if not color else COLORS_CATEGORY
 
@@ -587,7 +677,14 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
                 break
         else:
             if attr_type.count('.') > 1:
-                attr_type = '.'.join(chain(map(lambda x: x[:2], attr_type.split('.')[:-1]), (attr_type.split('.')[-1],)))
+                attr_type = u'.'.join(chain(map(lambda x: x[:2], attr_type.split('.')[:-1]), (attr_type.split('.')[-1],)))
+
+        if search is not None:
+            if not (
+                attr_name.lower().find(search.lower()) != -1 or
+                (isinstance(val, (str, unicode)) and val.lower().find(search.lower()) != -1)
+            ):
+                continue
 
         if not categories.has_key(cat):
             categories[cat].category = cat
@@ -607,8 +704,11 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         for attr_name, attr_type, value in category.attr_list:
             # if truncate and value:
             #     value = (u'{}'.format(value))[:truncate]
-            lines.append(u"{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=(u': {}'.format(value) if value else ''), width=category.type_max_width))
-
+            try:
+                lines.append(u"{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=(u': {}'.format(value) if value else ''), width=category.type_max_width))
+            except UnicodeDecodeError as e:
+                value = value.decode('utf-8','replace')
+                lines.append(u"{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=(u': {}'.format(value) if value else ''), width=category.type_max_width))
         categories[cat].lines = lines
 
 
@@ -721,3 +821,4 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         sys.stdout.write('\n')
 
 # from .utils import ruler
+

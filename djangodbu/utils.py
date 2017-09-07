@@ -12,7 +12,20 @@ def get_types(thing):
     except:
         pass
 
-def dict_search(somedict, string, case_insensitive=True, path='', done=None):
+def dse(*args, **kwargs):
+    import ipdb
+    try:
+        ds(*args, **kwargs)
+    except Exception as e:
+        ipdb.post_mortem()
+
+def ds(dictlike, searchstring, case_insensitive=True):
+    if isinstance(dictlike, list):
+        _list_search(dictlike, searchstring, case_insensitive=case_insensitive)
+    elif isinstance(dictlike, dict):
+        _dict_search(dictlike, searchstring, case_insensitive=case_insensitive)
+
+def _dict_search(somedict, string, case_insensitive=True, path='', done=None):
     dictid = id(somedict)
 
     if done is None:
@@ -21,7 +34,7 @@ def dict_search(somedict, string, case_insensitive=True, path='', done=None):
         done.add(dictid)
 
     if isinstance(somedict, list):
-        list_search(somedict, string, done=done)
+        _list_search(somedict, string, done=done)
         return
 
     for key, value in somedict.iteritems():
@@ -30,14 +43,32 @@ def dict_search(somedict, string, case_insensitive=True, path='', done=None):
             not case_insensitive and (key.find(string) != -1)
         ):
             # print path, 'KEY:', key
-            print YELLOW_B + path, RED_B + 'KEY:' + RESET, repr(value)
+            print "{path} {col2}{key}{col0}:{rst} {value}".format(
+                col0=BLACK_B,
+                # col1=YELLOW_B,
+                col2=RED_B,
+                rst=RESET,
+                key=key,
+                value=repr(value),
+                path=path + BLACK_B + " >" + RESET if path else ''
+            )
+            # print YELLOW_B + path, RED_B + 'KEY:' + RESET, repr(value)
 
         if isinstance(value, str) or isinstance(value, unicode):
             if (
                 case_insensitive and (value.lower().find(string.lower()) != -1) or
                 not case_insensitive and (value.find(string) != -1)
             ):
-                print BLACK_B + path, BLUE_B + 'VALUE:' + RESET, repr(value)
+                print "{path} {col2}{key} {col0}:{rst} {value}".format(
+                    col0=BLACK_B,
+                    col1=YELLOW_B,
+                    col2=RED_B,
+                    rst=RESET,
+                    key=key,
+                    value=repr(value),
+                    path=path + BLACK_B + " >" + RESET if path else ''
+                )
+                # print BLACK_B + path, BLUE_B + 'VALUE:' + RESET, repr(value)
 
         elif isinstance(value, dict):
             valueid = id(value)
@@ -45,19 +76,21 @@ def dict_search(somedict, string, case_insensitive=True, path='', done=None):
                 continue
             # print '+', valueid
             done.add(valueid)
-            dict_search(value, string, path=path+' > '+key if path else key, done=done)
+            new_path = "{path} {col0}> {col2}{key}{rst}".format(col2=RED_B, col0=BLACK_B, rst=RESET, path=path, key=key) if path else RED_B + key + RESET
+            _dict_search(value, string, case_insensitive=case_insensitive, path=new_path, done=done)
         elif isinstance(value, list):
             valueid = id(value)
             if valueid in done:
                 continue
             # print '-', valueid
             done.add(valueid)
-            list_search(value, string, path=path+' > '+key if path else key, done=done)
+            new_path = "{path} {col0}> {col2}{key}{rst}".format(col2=RED_B, col0=BLACK_B, rst=RESET, path=path, key=key) if path else RED_B + key + RESET
+            _list_search(value, string, case_insensitive=case_insensitive, path=new_path, done=done)
 
 
 
 
-def list_search(somelist, string, case_insensitive=True, path='', done=None):
+def _list_search(somelist, string, case_insensitive=True, path='', done=None):
     listid = id(somelist)
 
     if done is None:
@@ -66,7 +99,7 @@ def list_search(somelist, string, case_insensitive=True, path='', done=None):
         done.add(listid)
 
     if isinstance(somelist, dict):
-        dict_search(somelist, string, done=done)
+        _dict_search(somelist, string, case_insensitive=case_insensitive, done=done)
         return
 
     for i, value in enumerate(somelist):
@@ -75,29 +108,37 @@ def list_search(somelist, string, case_insensitive=True, path='', done=None):
                 case_insensitive and (value.lower().find(string.lower()) != -1) or
                 not case_insensitive and (value.find(string) != -1)
             ):
-                print BLACK_B + path, i, BLUE_B + 'VALUE:' + RESET, value
+                print "{path} {col2}{key}{rst} {col0}:{rst} {value}".format(
+                    col0=BLACK_B,
+                    col1=YELLOW_B,
+                    col2=BLUE_B,
+                    rst=RESET,
+                    key=i,
+                    value=repr(value),
+                    path=path + BLACK_B + ' >' + RESET if path else ''
+                )
+                # print BLACK_B + path, i, BLUE_B + 'VALUE:' + RESET, value
         elif isinstance(value, dict):
             valueid = id(value)
             if valueid in done:
                 continue
             # print '+', valueid
             done.add(valueid)
-            dict_search(value, string, path="{} > {}".format(path, i) if path else i, done=done)
+            new_path = "{path} {col0}> {col2}{key}{rst}".format(col2=BLUE_B, col0=BLACK_B, rst=RESET, path=path, key=i) if path else BLUE_B + i + RESET
+            _dict_search(value, string, case_insensitive=case_insensitive, path=new_path, done=done)
         elif isinstance(value, list):
             valueid = id(value)
             if valueid in done:
                 continue
             # print '-', valueid
             done.add(valueid)
-            list_search(value, string, path="{} > {} ".format(path, i) if path else i, done=done)
+            new_path = "{path} {col0}> {col2}{key}{rst}".format(col2=BLUE_B, col0=BLACK_B, rst=RESET, path=path, key=i) if path else BLUE_B + i + RESET
+            _list_search(value, string, case_insensitive=case_insensitive, path=new_path, done=done)
 
 
 def ruler(length=71, pad=0, start_from_zero=True):
-    #        12345678901234567890123456789012345678901234567890123456789012345678901234567890
-    #rulermrks = "|._._:_._.|....:....|....:....|....:....|....:....|....:....|....:....|....:....|....:....|....:....|....:....|....:....|....:....|....:....|....:...."
     rulermrks = "|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|._._:_._.|"
     rulerdata = "0        10        20        30        40        50        60        70        80        90        100       110       120       130       140       150"
-    #rulerdata = "01234567890....|....2....|....3....|....4....|....5....|....6....|....7....|....8....|....9....|....0....|....1....|....2....|....3....|....4....|....5"
 
     if start_from_zero:
         return u"{}\n{}".format(
@@ -109,3 +150,68 @@ def ruler(length=71, pad=0, start_from_zero=True):
         u''.join([u' ' for _ in xrange(pad)]) + rulermrks[1:length + 1 - pad],
         u''.join([u' ' for _ in xrange(pad)]) + rulerdata[1:length + 1 - pad]
     )
+
+_encodings = [
+    'utf-8',
+    'latin1',
+    'ascii',
+    'ISO-8859-1',
+    'ISO-8859-15',
+]
+
+
+def ascfix(input_text):
+    if isinstance(input_text, str):
+        print input_text
+        # print type(input_text),
+        print 'str',
+        print "-decode-> unicode",
+        try:
+            import chardet
+            res = chardet.detect(input_text)
+            print "({en} at ~{con})".format(en=res.get('encoding'), con=res.get('confidence'))
+        except:
+            print
+
+        for enc in _encodings:
+            print u"{}: ".format(enc)
+
+            try:
+                data = input_text.decode(enc, 'replace')
+                # print "-> OK"
+
+                for enc2 in _encodings:
+                    print u"  -> {}:".format(enc2),
+                    try:
+                        data2 = str(data.encode(enc2, 'replace'))
+                        print data2
+                    except Exception as e:
+                        print 'Error'
+                print
+
+            except Exception as e:
+                print "-> Error"
+
+    elif isinstance(input_text, unicode):
+        print input_text
+        # print type(input_text),
+        print 'unicode'
+        print "-encode-> str"
+
+        for enc in _encodings:
+            print u"{}: ".format(enc)
+            print "  e: ",
+            try:
+                data = str(input_text.encode(enc, 'replace'))
+                print data, input_text.encode(enc, 'replace')
+            except Exception as e:
+                print "Error", e,
+                try:
+                    data = input_text.encode(enc, 'replace')
+                    print "-> OK"
+                except Exception as e:
+                    print "-> Error"
+
+    else:
+        print "-> not string"
+        return
