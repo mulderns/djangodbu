@@ -214,8 +214,12 @@ def stack_position():
 # self.db.queries_log.append({
 #     'sql': sql,
 #     'time': "%.3f" % duration,
-#     'trace': stack_position(),  # < THIS
+#     'trace': stack_position(),  # <-- THIS
 # })
+#
+# def stack_position():
+#     import traceback
+#     return traceback.extract_stack()# ' > '.join([f[2] for f in traceback.extract_stack()])
 
 
 # STACK

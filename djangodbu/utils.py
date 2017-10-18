@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import unicode_literals
+
 from shell import RED_B, RESET, GREEN_B, BLUE_B, BLACK_B, YELLOW_B
 
 def get_types(thing):
@@ -141,14 +143,14 @@ def ruler(length=71, pad=0, start_from_zero=True):
     rulerdata = "0        10        20        30        40        50        60        70        80        90        100       110       120       130       140       150"
 
     if start_from_zero:
-        return u"{}\n{}".format(
-            u''.join([u' ' for _ in xrange(pad)]) + rulermrks[:length - pad],
-            u''.join([u' ' for _ in xrange(pad)]) + rulerdata[:length - pad]
+        return "{}\n{}".format(
+            ''.join([' ' for _ in xrange(pad)]) + rulermrks[:length - pad],
+            ''.join([' ' for _ in xrange(pad)]) + rulerdata[:length - pad]
         )
 
-    return u"{}\n{}".format(
-        u''.join([u' ' for _ in xrange(pad)]) + rulermrks[1:length + 1 - pad],
-        u''.join([u' ' for _ in xrange(pad)]) + rulerdata[1:length + 1 - pad]
+    return "{}\n{}".format(
+        ''.join([' ' for _ in xrange(pad)]) + rulermrks[1:length + 1 - pad],
+        ''.join([' ' for _ in xrange(pad)]) + rulerdata[1:length + 1 - pad]
     )
 
 _encodings = [
@@ -174,14 +176,14 @@ def ascfix(input_text):
             print
 
         for enc in _encodings:
-            print u"{}: ".format(enc)
+            print "{}: ".format(enc)
 
             try:
                 data = input_text.decode(enc, 'replace')
                 # print "-> OK"
 
                 for enc2 in _encodings:
-                    print u"  -> {}:".format(enc2),
+                    print "  -> {}:".format(enc2),
                     try:
                         data2 = str(data.encode(enc2, 'replace'))
                         print data2
@@ -199,7 +201,7 @@ def ascfix(input_text):
         print "-encode-> str"
 
         for enc in _encodings:
-            print u"{}: ".format(enc)
+            print "{}: ".format(enc)
             print "  e: ",
             try:
                 data = str(input_text.encode(enc, 'replace'))
@@ -215,3 +217,38 @@ def ascfix(input_text):
     else:
         print "-> not string"
         return
+import logging
+log = logging.getLogger(__name__)
+import chardet
+def uni(thing):
+    if thing is None:
+        return None
+
+    if isinstance(thing, unicode):
+        # log.debug(u'unicode: {}'.format(thing))
+        return thing
+
+    if isinstance(thing, str):
+        # log.debug('str {}'.format(thing))
+        try:
+            return thing.decode('utf-8')
+        except UnicodeDecodeError as e:
+            result = chardet.detect(thing)
+            charenc = result['encoding']
+            return thing.decode(charenc, 'replace')
+
+    if isinstance(thing, (int, float, long)):
+        # log.debug(u'number: {}'.format(thing))
+        return '{}'.format(thing)
+
+    if hasattr(thing, '__unicode__'):
+        try:
+            # log.debug('__unicode__ {} -> {}'.format(repr(thing), thing.__unicode__()))
+            return thing.__unicode__()
+        except:
+            pass
+    if hasattr(thing, '__str__') and not isinstance(thing, type):
+        # log.debug('__str__() {} -> {}'.format(repr(thing), thing.__str__()))
+        return thing.__str__()
+
+    return repr(thing)
