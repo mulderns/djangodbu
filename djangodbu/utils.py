@@ -144,13 +144,13 @@ def ruler(length=71, pad=0, start_from_zero=True):
 
     if start_from_zero:
         return "{}\n{}".format(
-            ''.join([' ' for _ in xrange(pad)]) + rulermrks[:length - pad],
-            ''.join([' ' for _ in xrange(pad)]) + rulerdata[:length - pad]
+            ''.join([' ' for _ in xrange(pad)]) + rulermrks[:length],
+            ''.join([' ' for _ in xrange(pad)]) + rulerdata[:length]
         )
 
     return "{}\n{}".format(
-        ''.join([' ' for _ in xrange(pad)]) + rulermrks[1:length + 1 - pad],
-        ''.join([' ' for _ in xrange(pad)]) + rulerdata[1:length + 1 - pad]
+        ''.join([' ' for _ in xrange(pad)]) + rulermrks[1:(length + 1)],
+        ''.join([' ' for _ in xrange(pad)]) + rulerdata[1:(length + 1)]
     )
 
 _encodings = [
@@ -226,29 +226,58 @@ def uni(thing):
 
     if isinstance(thing, unicode):
         # log.debug(u'unicode: {}'.format(thing))
+        # log.debug('is unicode')
         return thing
 
     if isinstance(thing, str):
         # log.debug('str {}'.format(thing))
+        # log.debug('is str')
         try:
             return thing.decode('utf-8')
         except UnicodeDecodeError as e:
+            # log.debug(' not utf-8')
             result = chardet.detect(thing)
             charenc = result['encoding']
             return thing.decode(charenc, 'replace')
 
     if isinstance(thing, (int, float, long)):
         # log.debug(u'number: {}'.format(thing))
+        # log.debug('is number')
         return '{}'.format(thing)
 
     if hasattr(thing, '__unicode__'):
         try:
             # log.debug('__unicode__ {} -> {}'.format(repr(thing), thing.__unicode__()))
+            # log.debug('has __unicode__()')
             return thing.__unicode__()
         except:
+            # log.debug('  could not __unicode__()')
             pass
     if hasattr(thing, '__str__') and not isinstance(thing, type):
-        # log.debug('__str__() {} -> {}'.format(repr(thing), thing.__str__()))
-        return thing.__str__()
+        # log.debug('__str__() {} -> {}'.format(repr(thing), uni(thing.__str__())))
+
+        return uni(thing.__str__())
 
     return repr(thing)
+
+def get_subqueus_req(elements, first=True):
+    if not elements:
+        # print '-'
+        yield None
+    elif len(elements) == 1:
+        # print ' .', [elements]
+        yield [elements]
+    else:
+        for w in range(1, len(elements)):
+            for rest in get_subqueus_req(elements[w:], first=False):
+                # if first:
+                #     print '=> ', [elements[:w]], '+', rest
+                # else:
+                #     print '  <-', [elements[:w]], '+', rest
+                yield [elements[:w]] + rest if rest else [elements]
+        # yield [elements] if first else [elements]
+        # if first:
+        #     print '=> ', elements
+        # else:
+        #     print ' <=', [elements]
+        yield [elements]

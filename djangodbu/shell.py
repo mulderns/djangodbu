@@ -12,25 +12,28 @@ from itertools import chain, izip_longest
 from math import ceil
 from cStringIO import StringIO
 
+class MultiValueDict(object):
+    pass
+
+
 try:
     from django.db.models import Model
     from django.db.models.query import QuerySet
     from django.db.models.sql.query import Query, RawQuery
     from django.core.exceptions import FieldError
+    from django.db.models.manager import BaseManager
+    from django.db.models import Model
+    from django.utils.datastructures import MultiValueDict
 except:
-	print("Could not import Django")
-
-	class Model(object):
-		pass
-
-	class QuerySet(object):
-		pass
-
-	class Query(object):
-		pass
-
-	class RawQuery(object):
-		pass
+    print "Could not import Django"
+    class Model(object):
+        pass
+    class QuerySet(object):
+        pass
+    class Query(object):
+        pass
+    class RawQuery(object):
+        pass
 
 
 from terminalsize import get_terminal_size
@@ -42,46 +45,70 @@ from sql import print_query
 
 # COLORS FOR TERMINAL
 
-RED = '\033[0;31m'
-GREEN = '\033[0;32m'
-BLUE = '\033[0;34m'
-CYAN = '\033[0;36m'
+RED     = '\033[0;31m'
+GREEN   = '\033[0;32m'
+BLUE    = '\033[0;34m'
+CYAN    = '\033[0;36m'
 MAGENTA = '\033[0;35m'
-YELLOW = '\033[0;33m'
-WHITE = '\033[0;37m'
-BLACK = '\033[0;30m'
+YELLOW  = '\033[0;33m'
+WHITE   = '\033[0;37m'
+BLACK   = '\033[0;30m'
 
-RED_B = '\033[1;31m'
-GREEN_B = '\033[1;32m'
-BLUE_B = '\033[1;34m'
-CYAN_B = '\033[1;36m'
+RED_B     = '\033[1;31m'
+GREEN_B   = '\033[1;32m'
+BLUE_B    = '\033[1;34m'
+CYAN_B    = '\033[1;36m'
 MAGENTA_B = '\033[1;35m'
-YELLOW_B = '\033[1;33m'
-WHITE_B = '\033[1;37m'
-BLACK_B = '\033[1;30m'
+YELLOW_B  = '\033[1;33m'
+WHITE_B   = '\033[1;37m'
+BLACK_B   = '\033[1;30m'
 
 RESET = '\033[0m'
 
 
+B_RED     = '\033[0;41m'
+B_GREEN   = '\033[0;42m'
+B_BLUE    = '\033[0;44m'
+B_CYAN    = '\033[0;46m'
+B_MAGENTA = '\033[0;45m'
+B_YELLOW  = '\033[0;43m'
+B_WHITE   = '\033[0;47m'
+B_BLACK   = '\033[0;40m'
+
+B_RED_B     = '\033[30;41m'
+B_GREEN_B   = '\033[30;42m'
+B_BLUE_B    = '\033[30;44m'
+B_CYAN_B    = '\033[30;46m'
+B_MAGENTA_B = '\033[30;45m'
+B_YELLOW_B  = '\033[30;43m'
+B_WHITE_B   = '\033[30;47m'
+B_BLACK_B   = '\033[30;40m'
+
+BOLD = '\033[1m'
+UNDERLINE = '\033[4m'
+REVERSE = '\033[7m'
+
+
+
 class COLORS(object):
     def __init__(self):
-        self.RED = '\033[0;31m'
-        self.GREEN = '\033[0;32m'
-        self.BLUE = '\033[0;34m'
-        self.CYAN = '\033[0;36m'
-        self.MAGENTA = '\033[0;35m'
-        self.YELLOW = '\033[0;33m'
-        self.WHITE = '\033[0;37m'
-        self.BLACK = '\033[0;30m'
-        self.RED_B = '\033[1;31m'
-        self.GREEN_B = '\033[1;32m'
-        self.BLUE_B = '\033[1;34m'
-        self.CYAN_B = '\033[1;36m'
+        self.RED       = '\033[0;31m'
+        self.GREEN     = '\033[0;32m'
+        self.BLUE      = '\033[0;34m'
+        self.CYAN      = '\033[0;36m'
+        self.MAGENTA   = '\033[0;35m'
+        self.YELLOW    = '\033[0;33m'
+        self.WHITE     = '\033[0;37m'
+        self.BLACK     = '\033[0;30m'
+        self.RED_B     = '\033[1;31m'
+        self.GREEN_B   = '\033[1;32m'
+        self.BLUE_B    = '\033[1;34m'
+        self.CYAN_B    = '\033[1;36m'
         self.MAGENTA_B = '\033[1;35m'
-        self.YELLOW_B = '\033[1;33m'
-        self.WHITE_B = '\033[1;37m'
-        self.BLACK_B = '\033[1;30m'
-        self.RESET = '\033[0m'
+        self.YELLOW_B  = '\033[1;33m'
+        self.WHITE_B   = '\033[1;37m'
+        self.BLACK_B   = '\033[1;30m'
+        self.RESET     = '\033[0m'
 
 class NOCOLORS(object):
     def __init__(self):
@@ -104,23 +131,23 @@ class NOCOLORS(object):
         self.RESET = ''
 
 COLORSx = {
-    'RED':  '\033[0;31m',
-    'GREEN':  '\033[0;32m',
-    'BLUE':  '\033[0;34m',
-    'CYAN':  '\033[0;36m',
-    'MAGENTA':  '\033[0;35m',
-    'YELLOW':  '\033[0;33m',
-    'WHITE':  '\033[0;37m',
-    'BLACK':  '\033[0;30m',
-    'RED_B':  '\033[1;31m',
-    'GREEN_B':  '\033[1;32m',
-    'BLUE_B':  '\033[1;34m',
-    'CYAN_B':  '\033[1;36m',
-    'MAGENTA_B':  '\033[1;35m',
-    'YELLOW_B':  '\033[1;33m',
-    'WHITE_B':  '\033[1;37m',
-    'BLACK_B':  '\033[1;30m',
-    'RESET': '\033[0m',
+    'RED'      : '\033[0;31m',
+    'GREEN'    : '\033[0;32m',
+    'BLUE'     : '\033[0;34m',
+    'CYAN'     : '\033[0;36m',
+    'MAGENTA'  : '\033[0;35m',
+    'YELLOW'   : '\033[0;33m',
+    'WHITE'    : '\033[0;37m',
+    'BLACK'    : '\033[0;30m',
+    'RED_B'    : '\033[1;31m',
+    'GREEN_B'  : '\033[1;32m',
+    'BLUE_B'   : '\033[1;34m',
+    'CYAN_B'   : '\033[1;36m',
+    'MAGENTA_B': '\033[1;35m',
+    'YELLOW_B' : '\033[1;33m',
+    'WHITE_B'  : '\033[1;37m',
+    'BLACK_B'  : '\033[1;30m',
+    'RESET'    : '\033[0m',
 }
 
 
@@ -129,31 +156,33 @@ RE_STRIP_TYPE = r"^.*'(.*)'"
 
 
 COLORS_CATEGORY = {
-    'BOOL': BLUE,
-    'NUMBER': WHITE,
-    'STRING': GREEN,
-    'LIST': BLUE_B,
+    'BOOL'    : BLUE,
+    'NUMBER'  : WHITE,
+    'STRING'  : GREEN,
+    'LIST'    : BLUE_B,
     'FUNCTION': YELLOW,
-    'RELATED': MAGENTA,
-    'CLASS': YELLOW_B,
-    'DATE': CYAN,
-    'OTHER': RESET,
-    'NONE': BLACK_B,
+    'RELATED' : MAGENTA,
+    'CLASS'   : YELLOW_B,
+    'DATE'    : CYAN,
+    'OTHER'   : RESET,
+    'NONE'    : BLACK_B,
+    'ERROR'   : RED,
 }
 
 NOCOLOR = ''
 
 NOCOLORS_CATEGORY = {
-    'BOOL': NOCOLOR,
-    'NUMBER': NOCOLOR,
-    'STRING': NOCOLOR,
-    'LIST': NOCOLOR,
+    'BOOL'    : NOCOLOR,
+    'NUMBER'  : NOCOLOR,
+    'STRING'  : NOCOLOR,
+    'LIST'    : NOCOLOR,
     'FUNCTION': NOCOLOR,
-    'RELATED': NOCOLOR,
-    'CLASS': NOCOLOR,
-    'DATE': NOCOLOR,
-    'OTHER': NOCOLOR,
-    'NONE': NOCOLOR,
+    'RELATED' : NOCOLOR,
+    'CLASS'   : NOCOLOR,
+    'DATE'    : NOCOLOR,
+    'OTHER'   : NOCOLOR,
+    'NONE'    : NOCOLOR,
+    'ERROR'   : NOCOLOR,
 }
 
 
@@ -167,6 +196,8 @@ COLUMN_GROUPS = [
 TYPE_SUBSTITUTIONS = [
     ('django.db.models.fields.related.RelatedManager', 'RelatedManager'),
     ('django.db.models.fields.related.ManyRelatedManager', 'ManyRelatedManager'),
+    ('django.db.models.fields.related.RelatedObjectDoesNotExist', 'DoesNotExist'),
+    ('django.core.exceptions.FieldDoesNotExist', 'FieldDoesNotExist'),
 ]
 
 def type_to_category_value(thing):
@@ -193,10 +224,10 @@ def type_to_category_value(thing):
         return ('NUMBER', thing)
     if isinstance(thing, str):
         #print "str", uni(thing)
-        return ('STRING', uni(thing))
+        return ('STRING', uni(thing).replace(u'\n', u'␤'))
     if isinstance(thing, unicode):
         #print "unicode", thing
-        return ('STRING', thing)
+        return ('STRING', thing.replace(u'\n', u'␤'))
     if isinstance(thing, list):
         #print "list"
         return ('LIST', len(thing))
@@ -232,7 +263,7 @@ def type_to_category_value(thing):
             return ('NUMBER', uni(thing))
     if isinstance(thing, Model):
         #print "model", uni(thing)
-        return ('RELATED', "{} > '{}'".format(thing.id, uni(thing)))
+        return ('RELATED', "{} > '{}'".format(thing.pk, uni(thing)))
     if isinstance(thing, QuerySet):
         #print "queryset", uni(thing.count())
         return ('RELATED', uni(thing.count()))
@@ -241,7 +272,16 @@ def type_to_category_value(thing):
         return ('DATE', uni(thing))
     if hasattr(thing, '__class__'):
         #print "__class__", uni(thing.name) if hasattr(thing, 'name') and isinstance(thing, (str, unicode)) else None
-        return ('CLASS', uni(thing.name) if hasattr(thing, 'name') and isinstance(thing, (str, unicode)) else None)
+        # return ('CLASS', uni(thing.name) if hasattr(thing, 'name') and isinstance(thing.name, (str, unicode)) else uni(thing))
+        if hasattr(thing, 'name') and isinstance(thing.name, (str, unicode)):
+            # print thing
+            return ('CLASS', uni(thing.name))
+        _repr = uni(thing)
+        if not _repr:
+            _repr = uni(repr(thing))
+        if re.findall(r'object.*at', uni(thing)):
+            return ('CLASS', None)
+        return ('CLASS', _repr)
 
     #print "other", uni(repr(thing))
     return ('OTHER', uni(repr(thing)))
@@ -255,7 +295,7 @@ def dormm(obj, ignore_builtin=True, values_only=True, minimal=False, padding=0, 
 # TODO: search -> search dicts / lists ?
 # TODO: escape newlines -> ↵
 # TODO: dormv -> values only -> dont show types, ids, functions, put values first
-def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None, paginate=True):
+def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None, paginate=True, references_only=False):
     """
 Debug django ORM. pretty prints:
   - Model instances
@@ -296,6 +336,10 @@ Returns:
 
     if isinstance(obj, defaultdict):
         pprint.pprint(dict(obj), indent=2)
+        return
+
+    if isinstance(obj, MultiValueDict):
+        pprint.pprint([(k, v) for (k, v) in obj.iteritems()])
         return
 
     # print sql
@@ -340,6 +384,9 @@ Returns:
                 except FieldError as e:
                     errorre = r"Cannot resolve keyword u?'([^']*)' into field. Choices are:(.*)"
                     m = re.match(errorre, e.args[0])
+                    if m is None: # not matching -> some other error -> print
+                        print e
+                        return
                     wrong = m.groups()[0]
                     wrong_inserted = False
                     choices = [choice.strip() for choice in m.groups()[1].strip().split(',')]
@@ -507,7 +554,7 @@ Returns:
     # else print orm debug
     if search is None and s is not None:
         search = s
-    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate, search=search, stream=stream)
+    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=50 if truncate is None and not values_only else truncate, search=search, stream=stream, references_only=references_only)
 
 
 def dormmm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None):
@@ -571,7 +618,11 @@ def _print_minimal_values(values_row, selected_values, additional=None):
 
 # TODO: deduplicate in print_minimal_callable
 def get_callable_value(obj, callable_prop):
-    _id = obj.id if hasattr(obj, 'id') else ''
+    _id = ''
+    if hasattr(obj, 'id'):
+        _id = obj.id
+    elif hasattr(obj, 'pk'):
+        _id = obj.pk
     value = _id
 
     if isinstance(callable_prop, types.LambdaType):
@@ -599,7 +650,11 @@ def get_callable_value(obj, callable_prop):
     return uni(value)
 
 def _print_minimal_callable(obj, callable_prop):
-    _id = obj.id if hasattr(obj, 'id') else ''
+    _id = ''
+    if hasattr(obj, 'id'):
+        _id = obj.id
+    elif hasattr(obj, 'pk'):
+        _id = obj.pk
     value = _id
 
     if isinstance(callable_prop, types.LambdaType):
@@ -626,19 +681,23 @@ def _print_minimal_callable(obj, callable_prop):
 
 
 def _print_minimal(obj, annotation=None):
-    _id = obj.id if hasattr(obj, 'id') else ''
+    _id = ''
+    if hasattr(obj, 'id'):
+        _id = obj.id
+    elif hasattr(obj, 'pk'):
+        _id = obj.pk
     value = _id
 
-    if hasattr(obj, 'name'):
-        attr = getattr(obj, 'name')
-        if not callable(attr):
-            value = attr
+    if hasattr(obj, '__unicode__'):
+        value = obj.__unicode__()
 
     elif hasattr(obj, '__str__'):
         value = unicode(obj.__str__().decode('utf-8', 'replace'))
 
-    elif hasattr(obj, '__unicode__'):
-        value = obj.__unicode__()
+    elif hasattr(obj, 'name'):
+        attr = getattr(obj, 'name')
+        if not callable(attr):
+            value = attr
 
     print "{}{}{}: {}{}  {}{}{}".format(WHITE, _id, BLACK_B, RESET, uni(value), BLACK_B, annotation if annotation is not None else '', RESET)
 
@@ -755,10 +814,11 @@ def dormnc(*args, **kwargs):
 
 
 class Category(object):
-    def __init__(self, category='', attr_list=None, type_max_width=0, lines=None):
+    def __init__(self, category='', attr_list=None, type_max_width=0, value_max_width=0, lines=None):
         self.category = category
         self.attr_list = attr_list if attr_list else []
         self.type_max_width = type_max_width
+        self.value_max_width = value_max_width
         self.lines = lines if lines else []
 
     def update_max_width(self, width):
@@ -766,30 +826,34 @@ class Category(object):
             self.type_max_width = width
 
     def __unicode__(self):
-        return "{} {}".format(self.category, self.type_max_width)
+        return "{}({}+{})".format(self.category, self.type_max_width, self.value_max_width)
 
     def __str__(self):
         return "hello"
 
 
 class Group(object):
-    def __init__(self, categories=None, width=0):
+    def __init__(self, categories=None, width=(0,0), height=0):
         self.categories = categories if categories else []
         self.width = width
 
     def update_width(self, width):
-        if width > self.width:
-            self.width = width
+        if self.width[0] < width[0]:
+            self.width = (width[0], self.width[1])
+        if self.width[1] < width[1]:
+            self.width = (self.width[0], width[1])
 
     def get_height(self):
-        height = sum([len(c.lines) for c in self.categories])
-        return height
+        return sum([len(cat.lines) for cat in self.categories])
 
     def __unicode__(self):
         return "cats:{} width:{}".format(len(self.categories), self.width)
 
     def __str__(self):
-        return "hello"
+        return "{}/{}".format(','.join([x.__unicode__() for x in self.categories]), self.width)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def calculate_width(groups):
@@ -803,18 +867,19 @@ def calculate_width(groups):
             continue
         # gmtw = max([cat.type_max_width for cat in group.categories])
 
-        gmvw = max([len(attr_name) + (lenesc("{}".format(uni(val))) if val is not None else -2) + 2 for cat in group.categories for attr_name, _, val in cat.attr_list])
+        gmvw = max([lenesc(attr_name) + (lenesc("{}".format(uni(val))) if val is not None else -2) + 2 for cat in group.categories for attr_name, _, val in cat.attr_list])
+        # print 'GMVW', gmvw
 
         # width = gmtw + 1 + gmvw
         # gmtw = type_max_width
         result = type_max_width + 1 + gmvw
         width = result if result > width else width
 
-    return width
+    return width + 1
 
 
 # TODO: fix unicode / str : convert all str to unicode
-def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None, stream=None):
+def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None, stream=None, references_only=False):
     colors = NOCOLORS() if not color else COLORS()
     colors_category = NOCOLORS_CATEGORY if not color else COLORS_CATEGORY
 
@@ -834,11 +899,14 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         attr = None
         try:
             attr = getattr(obj, attr_name)
+            cat, val = type_to_category_value(attr)
         except Exception as e:
             print "exception:", e
-            pass
-
-        cat, val = type_to_category_value(attr)
+            cat = 'ERROR'
+            val = ''
+            error = uni(type(e))
+            error = re.sub(r"<type '([^']*)'>", r'\g<1>', error)
+            error = re.sub(r"<class '([^']*)'>", r'\g<1>', error)
 
         if values_only:
             if not cat in ['BOOL', 'STRING', 'NUMBER', 'DATE', 'LIST', 'CLASS']:
@@ -862,13 +930,29 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
             #categories[cat].update_max_width(0)
             #categories[cat].attr_list.append((attr_name, '', val))
             #continue
+        elif references_only:
+            if not cat in ['RELATED']:
+                continue
+            if isinstance(attr, BaseManager):
+                if attr.count() == 0:
+                    continue
+                val = '[{}]'.format(', '.join([str(x) for x in attr.values_list('pk', flat=True)]))
+            elif isinstance(attr, Model):
+                val = '{}'.format(attr.pk)
 
-        if val is not None and truncate and lenescU(val) > truncate:
-            val = ('{}'.format(val))[:truncate-2] + BLACK_B + '..'
+
+        if val is not None and truncate and len(attr_name) + lenescU(val) > truncate:
+            val = ('{}'.format(val))[:truncate - (len(attr_name) + 2)] + BLACK_B + '..'
 
         # shorten some common types
         match = re.search(RE_STRIP_TYPE, uni(type(attr)))
         attr_type = match.group(1) if match else uni(type(obj))
+
+        if references_only:
+            attr_type = ''
+
+        if cat == 'ERROR':
+            attr_type = error
 
         for type_string, substitution in TYPE_SUBSTITUTIONS:
             if attr_type.find(type_string) != -1:
@@ -888,8 +972,18 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         if not categories.has_key(cat):
             categories[cat].category = cat
 
-        categories[cat].update_max_width(len(attr_type))
-        categories[cat].attr_list.append((attr_name, attr_type, val))
+        is_prop = isinstance(getattr(type(obj), attr_name, None), property)
+        is_const = attr_name.isupper()
+        is_id = re.match(r'(.*_)?id$', attr_name)
+
+        categories[cat].update_max_width(lenesc(attr_type))
+        if is_prop:
+            attr_name += RED_B + '@'
+        if is_const:
+            attr_name = BOLD + B_BLACK_B + attr_name
+        if is_id:
+            attr_name = UNDERLINE + attr_name
+        categories[cat].attr_list.append((attr_name , attr_type, val))
 
     # remove builtin if preset
     if ignore_builtin and categories.has_key('BUILTIN'):
@@ -899,6 +993,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
     for cat, category in categories.iteritems():
         COLOR = colors_category[cat] if colors_category.has_key(cat) else colors.RESET
         lines = []
+        value_max_width = 0
 
         # print "cat", cat, "width:", category.type_max_width
 
@@ -908,9 +1003,15 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
             if isinstance(value, str):
                 value = uni(value)
 
-            lines.append("{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=(': {}'.format(value) if value else ''), width=category.type_max_width))
+            value = (': {}'.format(value) if value else '')
+            # lines.append("{col1}{type:=>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=value, width=category.type_max_width))
+            lines.append("{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=value, width=category.type_max_width))
+            value_length = lenesc("{name}{value}".format(name=attr_name,  value=value)) + 1
+            if value_max_width < value_length:
+                value_max_width = value_length
 
         categories[cat].lines = lines
+        categories[cat].value_max_width = value_max_width
 
 
     groups = []
@@ -931,9 +1032,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
     # calculate group widths
     for group in groups:
         for cat in group.categories:
-            for line in cat.lines:
-                line_length = lenesc(line)
-                group.update_width(line_length)
+            group.update_width((cat.type_max_width, cat.value_max_width))
 
     # try to break out groups as columns if there is enough width
     # top group goes right
@@ -951,40 +1050,21 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
     current_column_width = 0
     tallest_column_height = 0
 
-    for i, group in enumerate(groups):
-        if (terminal_width - width_used) > (current_column_width + calculate_width(groups[i:])):
-            # we have space for new column
+    DEBUG = False
 
-            if current_column_height + group.get_height() <= min(tallest_column_height, terminal_height):
-                # ump this column to current column
-                current_column_height += group.get_height()
-                current_column.append(group)
-                current_column_width = calculate_width(current_column)
+    if DEBUG:
+        print 'terminal: {} x {}'.format(terminal_width, terminal_height)
 
-            else:
-                # move current_column to output
-                if current_column: # skip if empty
-                    columns.append(current_column)
-                    width_used += current_column_width
-                    output_column_widths.append(current_column_width)
+    # brute force layout to min height
+    layouts_fit_width = [layout for layout in get_subqueus_req(groups) if _calc_layout_width(layout) <= terminal_width]
+    if layouts_fit_width:
+        best_layout = min(layouts_fit_width, key=lambda x: _calc_layout_height(x))
+    else:
+        best_layout = [groups]
+    # print 'best: {}x{}'.format(_calc_layout_width(best_layout), _calc_layout_height(best_layout))
 
-                # create new_column from this group
-                current_column = [group]
-                current_column_width = calculate_width(current_column)
-                current_column_height = group.get_height()
-                if tallest_column_height < current_column_height:
-                    tallest_column_height = current_column_height
-
-        else:
-            # we don't have space for new column
-            # ump this column to current column
-            current_column_height += group.get_height()
-            current_column.append(group)
-            current_column_width = calculate_width(current_column)
-
-    # place the last open column to columns
-    columns.append(current_column)
-    output_column_widths.append(current_column_width)
+    columns = best_layout
+    output_column_widths = [(max([g.width[0] for g in layoutgroup]) + max([g.width[1] for g in layoutgroup])) for layoutgroup in best_layout]
 
     # render lines for each column
     # add padding according to group width & category type width
@@ -993,16 +1073,12 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
     for column in columns:
         output_lines = []
-        #column_type_max_width = max([c.type_max_width for c in [g.categories for g in column]])
 
-        column_type_max_width = 0
-        for g in column:
-            for c in g.categories:
-                if c.type_max_width > column_type_max_width:
-                    column_type_max_width = c.type_max_width
+        column_type_max_width = sum([max([g.width[0] for g in column])])
 
         for group in column:
             for cat in group.categories:
+                # print '?', cat.__unicode__(), cat.type_max_width, column_type_max_width - cat.type_max_width, column_type_max_width
                 # pad = ''.join(['_' for _ in range(column_type_max_width - cat.type_max_width)])
                 pad = ''.join([' ' for _ in range(column_type_max_width - cat.type_max_width)])
                 for line in cat.lines:
@@ -1012,9 +1088,13 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
     # PAD = ''.join('+' for _ in xrange(padding))
     PAD = ''.join(' ' for _ in xrange(padding))
 
-    if False: #DEBUG
-        print "output columns {}: {}".format(len(output_columns), output_column_widths)
-
+    if DEBUG: #DEBUG
+        print "output columns {}: {} (from right to left)".format(len(output_columns), output_column_widths)
+        from utils import ruler
+        _padd = 0
+        for cw in reversed(output_column_widths):
+            print ruler(cw, _padd, start_from_zero=False)
+            _padd += cw
 
     STREAM = stream if stream is not None else sys.stdout
 
@@ -1032,9 +1112,43 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
                 # STREAM.write('{column:·<{column_width}.{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
                 # STREAM.write('{column:<{column_width}.{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
                 # don't truncate for values_only
+                # STREAM.write('{column:·<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
                 STREAM.write('{column:<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
         STREAM.write('\n')
 
+
+def _calc_layout_width(layout):
+    '''
+        layout = [  [1, 2], [3], [4, 5]  ]
+        width = sum( max(group.width[0]) + max(group.width[1]) )
+    '''
+    # print
+    # print layout
+    # print 'widths:', [g.width for lg in layout for g in lg]
+    # print 'col dimensions:', [(
+    #     max([g.width[0] for g in layoutgroup]),
+    #     max([g.width[1] for g in layoutgroup]),
+    #     max([g.width[0] for g in layoutgroup]) + max([g.width[1] for g in layoutgroup]),
+    #     # max([max([g.width[0] for g in layoutgroup]) + max([g.width[1] for g in layoutgroup]) for layoutgroup in layout]),
+    # ) for layoutgroup in layout]
+    # print ' =>', sum([(max([g.width[0] for g in layoutgroup]) + max([g.width[1] for g in layoutgroup])) for layoutgroup in layout])
+
+    # return max([max([g.width[0] for g in layoutgroup]) + max([g.width[1] for g in layoutgroup]) for layoutgroup in layout])
+    return sum([(max([g.width[0] for g in layoutgroup]) + max([g.width[1] for g in layoutgroup]) + 1) for layoutgroup in layout])
+
+def _calc_layout_height(layout):
+    '''
+        layout = [  [1, 2], [3], [4, 5]  ]
+        height = max(group.height) <- sum(g.get_height())
+    '''
+    # print
+    # print layout
+    # print 'heights:', [[g.get_height() for g in layoutgroup] for layoutgroup in layout]
+    # print ' sums:', [sum([g.get_height() for g in layoutgroup]) for layoutgroup in layout]
+    # print ' tallest:', max([sum([g.get_height() for g in layoutgroup]) for layoutgroup in layout])
+    return max([sum([g.get_height() for g in layoutgroup]) for layoutgroup in layout])
+
 # from .utils import ruler
 
-from .utils import uni
+
+from .utils import uni, get_subqueus_req

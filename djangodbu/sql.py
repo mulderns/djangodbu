@@ -8,6 +8,9 @@
 
 '''
 
+from __future__ import unicode_literals
+
+
 import logging
 import re
 import os
@@ -62,11 +65,14 @@ def colorize_sql(sql):
 def format_sql(sql):
     return sqlparse.format(sql, reindent=True)
 
+
+
 def print_query(query):
-    sqlstring = unicode(query.__str__())
+    from utils import uni
+    sqlstring = uni(query.__str__())
     print colorize_sql(format_sql(sqlstring))
 
-def sqlprint(data, filtering=True):
+def sqlprint(data, filtering=True, tb=False):
     '''
     "Print SQL queries": {
 		"prefix": "dbusql",
@@ -87,19 +93,20 @@ def sqlprint(data, filtering=True):
 	}
 
     '''
+
     for row in data:
         #row['sql'] = colorize_sql(row['sql'])
         if filtering and float(row['time']) < 0.0001:
             log.info("{} :".format(row['time']))
             continue
 
-        location = None
-        if row.has_key('trace'):
-            location = _get_location(row['trace'])
+        location = '-'
+        if row.has_key('tb'):
+            location = _get_location(row['tb'])
 
         sql = format_sql(row['sql'])
         sql = colorize_sql(sql)
-        log.info("{} :{}\n{}\n".format(row['time'], location, sql))
+        log.info("{time}  {loc}\n{sql}\n".format(time=row['time'], loc=location, sql=sql))
 
 
 new_line_replace = re.compile(r'(\n)')
@@ -158,10 +165,10 @@ def _format_traceback2(tb):
 def _get_location(tb):
     relevant_frames = [frame for frame in tb if not trace_exclude_paths.search(frame[0])]
     if len(relevant_frames) == 0:
-        return ""
+        return "."
     frame = relevant_frames[-1]
 
-    return "\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3} \033[0;36m{module}\033[0m {text}".format(file=os.path.basename(frame[0]), linenum=frame[1], module=frame[2], text=frame[3])
+    return "\033[0;36m{module}(\033[1;30m…\033[0;36m) \033[1;30m[\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3}\033[1;30m] \033[0m{text}".format(file=os.path.basename(frame[0]), linenum=frame[1], module=frame[2], text=frame[3])
 
 
 _SQL_ID_PATTERN = re.compile(r'=\s*\d+')
@@ -239,3 +246,4 @@ def format_stack2():
         else:
             print u"{m:>20.20}:{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
         prev_file = simple_file
+
