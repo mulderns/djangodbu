@@ -88,6 +88,119 @@ BOLD = '\033[1m'
 UNDERLINE = '\033[4m'
 REVERSE = '\033[7m'
 
+class default_colors(object):
+    def __init__(self):
+        self.RED     = '\033[0;31m'
+        self.GREEN   = '\033[0;32m'
+        self.BLUE    = '\033[0;34m'
+        self.CYAN    = '\033[0;36m'
+        self.MAGENTA = '\033[0;35m'
+        self.YELLOW  = '\033[0;33m'
+        self.WHITE   = '\033[0;37m'
+        self.BLACK   = '\033[0;30m'
+
+        self.RED_B     = '\033[1;31m'
+        self.GREEN_B   = '\033[1;32m'
+        self.BLUE_B    = '\033[1;34m'
+        self.CYAN_B    = '\033[1;36m'
+        self.MAGENTA_B = '\033[1;35m'
+        self.YELLOW_B  = '\033[1;33m'
+        self.WHITE_B   = '\033[1;37m'
+        self.BLACK_B   = '\033[1;30m'
+
+        self.RESET = '\033[0m'
+
+
+        self.B_RED     = '\033[0;41m'
+        self.B_GREEN   = '\033[0;42m'
+        self.B_BLUE    = '\033[0;44m'
+        self.B_CYAN    = '\033[0;46m'
+        self.B_MAGENTA = '\033[0;45m'
+        self.B_YELLOW  = '\033[0;43m'
+        self.B_WHITE   = '\033[0;47m'
+        self.B_BLACK   = '\033[0;40m'
+
+        self.B_RED_B     = '\033[30;41m'
+        self.B_GREEN_B   = '\033[30;42m'
+        self.B_BLUE_B    = '\033[30;44m'
+        self.B_CYAN_B    = '\033[30;46m'
+        self.B_MAGENTA_B = '\033[30;45m'
+        self.B_YELLOW_B  = '\033[30;43m'
+        self.B_WHITE_B   = '\033[30;47m'
+        self.B_BLACK_B   = '\033[30;40m'
+
+        self.BOLD = '\033[1m'
+        self.UNDERLINE = '\033[4m'
+        self.REVERSE = '\033[7m'
+
+class red_colors(object):
+    def __init__(self):
+        self.RED     = '\033[0;31m'
+        self.GREEN   = '\033[0;31m'
+        self.BLUE    = '\033[0;31m'
+        self.CYAN    = '\033[0;31m'
+        self.MAGENTA = '\033[0;31m'
+        self.YELLOW  = '\033[0;31m'
+        self.WHITE   = '\033[0;31m'
+        self.BLACK   = '\033[0;31m'
+
+        self.RED_B     = '\033[1;31m'
+        self.GREEN_B   = '\033[1;31m'
+        self.BLUE_B    = '\033[1;31m'
+        self.CYAN_B    = '\033[1;31m'
+        self.MAGENTA_B = '\033[1;31m'
+        self.YELLOW_B  = '\033[1;31m'
+        self.WHITE_B   = '\033[1;31m'
+        self.BLACK_B   = '\033[1;31m'
+
+        self.RESET = '\033[0m'
+
+
+        self.B_RED     = '\033[0;41m'
+        self.B_GREEN   = '\033[0;41m'
+        self.B_BLUE    = '\033[0;41m'
+        self.B_CYAN    = '\033[0;41m'
+        self.B_MAGENTA = '\033[0;41m'
+        self.B_YELLOW  = '\033[0;41m'
+        self.B_WHITE   = '\033[0;41m'
+        self.B_BLACK   = '\033[0;41m'
+
+        self.B_RED_B     = '\033[30;41m'
+        self.B_GREEN_B   = '\033[30;41m'
+        self.B_BLUE_B    = '\033[30;41m'
+        self.B_CYAN_B    = '\033[30;41m'
+        self.B_MAGENTA_B = '\033[30;41m'
+        self.B_YELLOW_B  = '\033[30;41m'
+        self.B_WHITE_B   = '\033[30;41m'
+        self.B_BLACK_B   = '\033[30;41m'
+
+        self.BOLD = '\033[1m'
+        self.UNDERLINE = '\033[4m'
+        self.REVERSE = '\033[7m'
+
+_CLR = default_colors()
+
+def theme_set_colors(colors):
+    global _CLR
+    _CLR = colors
+
+def theme_change_colors(colors_dict, new=False):
+    colors = default_colors() if new else _CLR
+
+    for key, value in colors_dict.items():
+        if not hasattr(colors, key):
+            print 'no such color:', key
+            return
+        setattr(colors, key, value)
+    theme_set_colors(colors)
+
+
+def theme_print_colors():
+    for attr_name in dir(_CLR):
+        if not attr_name.startswith('_') :
+            sequence = getattr(_CLR, attr_name)
+            print '{:15} {:18} {}{}{}'.format(attr_name, repr(sequence), sequence, attr_name, RESET)
+
 
 
 class COLORS(object):
@@ -110,6 +223,8 @@ class COLORS(object):
         self.BLACK_B   = '\033[1;30m'
         self.RESET     = '\033[0m'
 
+COLOR_DEFS = COLORS()
+
 class NOCOLORS(object):
     def __init__(self):
         self.RED = ''
@@ -130,43 +245,21 @@ class NOCOLORS(object):
         self.BLACK_B = ''
         self.RESET = ''
 
-COLORSx = {
-    'RED'      : '\033[0;31m',
-    'GREEN'    : '\033[0;32m',
-    'BLUE'     : '\033[0;34m',
-    'CYAN'     : '\033[0;36m',
-    'MAGENTA'  : '\033[0;35m',
-    'YELLOW'   : '\033[0;33m',
-    'WHITE'    : '\033[0;37m',
-    'BLACK'    : '\033[0;30m',
-    'RED_B'    : '\033[1;31m',
-    'GREEN_B'  : '\033[1;32m',
-    'BLUE_B'   : '\033[1;34m',
-    'CYAN_B'   : '\033[1;36m',
-    'MAGENTA_B': '\033[1;35m',
-    'YELLOW_B' : '\033[1;33m',
-    'WHITE_B'  : '\033[1;37m',
-    'BLACK_B'  : '\033[1;30m',
-    'RESET'    : '\033[0m',
-}
-
-
 RE_STRIP_TYPE = r"^.*'(.*)'"
 
 
-
 COLORS_CATEGORY = {
-    'BOOL'    : BLUE,
-    'NUMBER'  : WHITE,
-    'STRING'  : GREEN,
-    'LIST'    : BLUE_B,
-    'FUNCTION': YELLOW,
-    'RELATED' : MAGENTA,
-    'CLASS'   : YELLOW_B,
-    'DATE'    : CYAN,
-    'OTHER'   : RESET,
-    'NONE'    : BLACK_B,
-    'ERROR'   : RED,
+    'BOOL'    : _CLR.BLUE,
+    'NUMBER'  : _CLR.WHITE,
+    'STRING'  : _CLR.GREEN,
+    'LIST'    : _CLR.BLUE_B,
+    'FUNCTION': _CLR.YELLOW,
+    'RELATED' : _CLR.MAGENTA,
+    'CLASS'   : _CLR.YELLOW_B,
+    'DATE'    : _CLR.CYAN,
+    'OTHER'   : _CLR.RESET,
+    'NONE'    : _CLR.BLACK_B,
+    'ERROR'   : _CLR.RED,
 }
 
 NOCOLOR = ''
@@ -185,6 +278,20 @@ NOCOLORS_CATEGORY = {
     'ERROR'   : NOCOLOR,
 }
 
+def get_COLORS_CATEGORY():
+    return {
+        'BOOL'    : _CLR.BLUE,
+        'NUMBER'  : _CLR.WHITE,
+        'STRING'  : _CLR.GREEN,
+        'LIST'    : _CLR.BLUE_B,
+        'FUNCTION': _CLR.YELLOW,
+        'RELATED' : _CLR.MAGENTA,
+        'CLASS'   : _CLR.YELLOW_B,
+        'DATE'    : _CLR.CYAN,
+        'OTHER'   : _CLR.RESET,
+        'NONE'    : _CLR.BLACK_B,
+        'ERROR'   : _CLR.RED,
+    }
 
 COLUMN_GROUPS = [
     ['FUNCTION', 'BUILTIN'],
@@ -212,7 +319,7 @@ def type_to_category_value(thing):
         return ('CLASS', uni(thing.__name__))
     if isinstance(thing, bool):
         #print "bool", thing
-        return ('BOOL', (GREEN if thing else RED) + uni(thing) + RESET)
+        return ('BOOL', (_CLR.GREEN if thing else _CLR.RED) + uni(thing) + _CLR.RESET)
     if isinstance(thing, int):
         #print "int", thing
         return ('NUMBER', thing)
@@ -295,7 +402,7 @@ def dormm(obj, ignore_builtin=True, values_only=True, minimal=False, padding=0, 
 # TODO: search -> search dicts / lists ?
 # TODO: escape newlines -> ↵
 # TODO: dormv -> values only -> dont show types, ids, functions, put values first
-def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None, paginate=True, references_only=False):
+def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, callables=None, values=None, v=None, c=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None, paginate=True, references_only=False):
     """
 Debug django ORM. pretty prints:
   - Model instances
@@ -362,6 +469,9 @@ Returns:
         if v is not None and values is None:
             values = [val.strip() for val in v.split(',')]
 
+        if c is not None and callables is None:
+            callables = [call.strip() for call in c.split(',')]
+
         if values is not None:
             print obj.model
             results_per_page = get_terminal_size()[1]-3
@@ -377,7 +487,8 @@ Returns:
                         pagenum = 0
 
                 lines = []
-                col_max = [0] * (len(values) if callable is None else len(values) + 1)
+                len_callables = len(callables) if callables is not None else 1 if callable is not None else 0
+                col_max = [0] * (len(values) + len_callables)
 
                 try:
                     page.values('pk', *values)
@@ -396,30 +507,30 @@ Returns:
 
                     for choice in choice_names:
                         if not wrong_inserted and choice > wrong:
-                            choices_processed.append(RED + wrong + WHITE + ' <-- ' + RED + 'error' + RESET)
+                            choices_processed.append(_CLR.RED + wrong + _CLR.WHITE + ' <-- ' + _CLR.RED + 'error' + _CLR.RESET)
                             wrong_inserted = True
 
                         id_handle = choice + '_id'
 
                         if choice in values:
-                            choice = GREEN + choice + RESET
+                            choice = _CLR.GREEN + choice + _CLR.RESET
 
                         if id_handle in choice_ids:
-                            color = GREEN if id_handle in values else BLACK_B
+                            color = _CLR.GREEN if id_handle in values else _CLR.BLACK_B
 
-                            choices_processed.append(choice + color +' (id)'+RESET)
+                            choices_processed.append(choice + color +' (id)'+ _CLR.RESET)
                             choice_ids.remove(id_handle)
                         else:
                             choices_processed.append(choice)
 
                     if not wrong_inserted:
-                        choices_processed.append(RED + wrong + RESET + ' <-- error')
+                        choices_processed.append(_CLR.RED + wrong + _CLR.RESET + ' <-- error')
 
                     choices_processed.extend(choice_ids)
 
                     print 'FieldError:'
                     for choice in choices_processed:
-                        print BLACK_B + '- ' + RESET + choice
+                        print _CLR.BLACK_B + '- ' + _CLR.RESET + choice
 
                     return
 
@@ -428,6 +539,13 @@ Returns:
                     for row, row_object in zip(page.values('pk', *values), page):
                         callable_value = get_callable_value(row_object, callable)
                         item_id, datas = _print_minimal_values(row, values, additional=callable_value)
+                        widths = [lenesc(x) for x in datas]
+                        col_max = [max(x) for x in zip(col_max, widths)]
+                        lines.append(('{:6}'.format(item_id), datas))
+                elif callables:
+                    for row, row_object in zip(page.values('pk', *values), page):
+                        values_callable = [(call, get_callable_value(row_object, call)) for call in callables]
+                        item_id, datas = _print_minimal_values(row, values, additional=values_callable)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
                         lines.append(('{:6}'.format(item_id), datas))
@@ -444,13 +562,15 @@ Returns:
                     values.append(callable if isinstance(callable, (str, unicode)) else 'callable')
                     print '    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values, col_max)])
                     values.pop()
+                elif callables:
+                    print '    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values+callables, col_max)])
                 else:
                     print '    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values, col_max)])
 
                 print ''.join(['-' for _ in xrange(get_terminal_size()[0])])
 
                 for item_id, datas in lines:
-                    print "{col1}{id}{col2}: {reset}{values}".format(col1=WHITE, id=item_id, col2=BLACK_B, reset=RESET, values='  '.join(
+                    print "{col1}{id}{col2}: {reset}{values}".format(col1=_CLR.WHITE, id=item_id, col2=_CLR.BLACK_B, reset=_CLR.RESET, values='  '.join(
                             ["{value}{pad}".format(
                                 value=l if l is not None else '',
                                 pad=''.join([' ' for _ in xrange(w - lenesc(l))])
@@ -538,7 +658,7 @@ Returns:
                     except KeyboardInterrupt as e:
                         break
 
-        print "= {}{}{}".format(RED, obj.count(), RESET)
+        print "= {}{}{}".format(_CLR.RED, obj.count(), _CLR.RESET)
         if (
             autoquery
             and v is None
@@ -554,7 +674,7 @@ Returns:
     # else print orm debug
     if search is None and s is not None:
         search = s
-    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=50 if truncate is None and not values_only else truncate, search=search, stream=stream, references_only=references_only)
+    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=50 if truncate is None and not (values_only or references_only) else truncate, search=search, stream=stream, references_only=references_only)
 
 
 def dormmm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None):
@@ -598,17 +718,23 @@ def _print_minimal_values(values_row, selected_values, additional=None):
         #     values2.append(data)
         elif isinstance(data, bool):
             if data:
-                values2.append(GREEN+'True'+RESET)
+                values2.append(_CLR.GREEN+'True'+_CLR.RESET)
             else:
-                values2.append(RED+'False'+RESET)
+                values2.append(_CLR.RED+'False'+_CLR.RESET)
         elif data is None:
-            values2.append(BLACK_B+'None'+RESET)
+            values2.append(_CLR.BLACK_B+'None'+_CLR.RESET)
         else:
             # print '>>', data
             values2.append(unicode(data))
 
     if additional is not None:
-        values2.append(additional)
+        if isinstance(additional, list):
+            if isinstance(additional[0], tuple):
+                values2 += [a[1] for a in additional]
+            else:
+                values2 += additional
+        else:
+            values2.append(additional)
 
     return (item_id, values2)
 
@@ -633,14 +759,20 @@ def get_callable_value(obj, callable_prop):
         if not callable(attr):
             value = attr
         else:
-            value = attr()
+            try:
+                value = attr()
+            except Exception as e:
+                value = 'ERR: {}'.format(e)
 
     elif callable_prop is None and hasattr(obj, 'name'):
         attr = getattr(obj, 'name')
         if not callable(attr):
             value = attr
         else:
-            value = attr()
+            try:
+                value = attr()
+            except Exception as e:
+                value = 'ERR: {}'.format(e)
 
     elif callable_prop is None and hasattr(obj, '__str__'):
         value = uni(obj)
@@ -677,7 +809,7 @@ def _print_minimal_callable(obj, callable_prop):
     elif callable_prop is None and hasattr(obj, '__str__'):
         value = unicode(obj.__str__().decode('utf-8', 'replace'))
 
-    print "{}{}{}: {}{}".format(WHITE, _id, BLACK_B, RESET, uni(value))
+    print "{}{}{}: {}{}".format(_CLR.WHITE, _id, _CLR.BLACK_B, _CLR.RESET, uni(value))
 
 
 def _print_minimal(obj, annotation=None):
@@ -699,7 +831,7 @@ def _print_minimal(obj, annotation=None):
         if not callable(attr):
             value = attr
 
-    print "{}{}{}: {}{}  {}{}{}".format(WHITE, _id, BLACK_B, RESET, uni(value), BLACK_B, annotation if annotation is not None else '', RESET)
+    print "{}{}{}: {}{}  {}{}{}".format(_CLR.WHITE, _id, _CLR.BLACK_B, _CLR.RESET, uni(value), _CLR.BLACK_B, annotation if annotation is not None else '', _CLR.RESET)
 
 
 def dorme(*args, **kwargs):
@@ -880,8 +1012,7 @@ def calculate_width(groups):
 
 # TODO: fix unicode / str : convert all str to unicode
 def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None, stream=None, references_only=False):
-    colors = NOCOLORS() if not color else COLORS()
-    colors_category = NOCOLORS_CATEGORY if not color else COLORS_CATEGORY
+    colors_category = NOCOLORS_CATEGORY if not color else get_COLORS_CATEGORY()
 
     # print object identifier
     if stream is not None:
@@ -916,7 +1047,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
             if cat == 'LIST':
                 # val = pprint.pformat(attr)
                 val_buffer = StringIO()
-                dorm(attr, values_only=True, padding=padding + 2, stream=val_buffer)
+                dorm(attr, values_only=values_only, padding=padding + 2, stream=val_buffer)
                 val_buffer.flush()
                 val_buffer.seek(0)
                 lines = [uni(line) for line in val_buffer.readlines()]
@@ -942,7 +1073,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
 
         if val is not None and truncate and len(attr_name) + lenescU(val) > truncate:
-            val = ('{}'.format(val))[:truncate - (len(attr_name) + 2)] + BLACK_B + '..'
+            val = ('{}'.format(val))[:truncate - (len(attr_name) + 2)] + _CLR.BLACK_B + '..'
 
         # shorten some common types
         match = re.search(RE_STRIP_TYPE, uni(type(attr)))
@@ -978,11 +1109,14 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
         categories[cat].update_max_width(lenesc(attr_type))
         if is_prop:
-            attr_name += RED_B + '@'
+            attr_name += _CLR.RED_B + '@'
         if is_const:
-            attr_name = BOLD + B_BLACK_B + attr_name
+            attr_name = _CLR.BOLD + _CLR.B_BLACK_B + attr_name
         if is_id:
-            attr_name = UNDERLINE + attr_name
+            attr_name = _CLR.UNDERLINE + attr_name
+        if values_only == 2 and (is_prop or is_const or is_id):
+            continue
+
         categories[cat].attr_list.append((attr_name , attr_type, val))
 
     # remove builtin if preset
@@ -991,7 +1125,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
     # then when we have the type_max_width we can build the lines
     for cat, category in categories.iteritems():
-        COLOR = colors_category[cat] if colors_category.has_key(cat) else colors.RESET
+        COLOR = colors_category[cat] if colors_category.has_key(cat) else _CLR.RESET
         lines = []
         value_max_width = 0
 
@@ -1005,7 +1139,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
             value = (': {}'.format(value) if value else '')
             # lines.append("{col1}{type:=>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=value, width=category.type_max_width))
-            lines.append("{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=value, width=category.type_max_width))
+            lines.append("{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=_CLR.BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=_CLR.RESET, value=value, width=category.type_max_width))
             value_length = lenesc("{name}{value}".format(name=attr_name,  value=value)) + 1
             if value_max_width < value_length:
                 value_max_width = value_length
