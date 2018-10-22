@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
 
@@ -281,3 +282,110 @@ def get_subqueus_req(elements, first=True):
         # else:
         #     print ' <=', [elements]
         yield [elements]
+
+
+
+class _dict2props(object):
+    def __init__(self, **kwargs):
+        for k, v in kwargs.iteritems():
+            setattr(self, k, v)
+
+cols = _dict2props(**{
+    'black'         : (30, 40),
+    'red'           : (31, 41),
+    'green'         : (32, 42),
+    'yellow'        : (33, 43),
+    'blue'          : (34, 44),
+    'magenta'       : (35, 45),
+    'cyan'          : (36, 46),
+    'white'         : (37, 47),
+    'bright_black'  : (90, 100),
+    'bright_red'    : (91, 101),
+    'bright_green'  : (92, 102),
+    'bright_yellow' : (93, 103),
+    'bright_blue'   : (94, 104),
+    'bright_magenta': (95, 105),
+    'bright_cyan'   : (96, 106),
+    'bright_white'  : (97, 107 ),
+})
+
+
+# 0	Reset / Normal
+# 1	Bold or increased intensity
+# 2	Faint (decreased intensity)
+# 3	Italic
+# 4	Underline
+# 5	Slow Blink
+# 6	Rapid Blink
+# 7	reverse video
+# 8	Conceal
+# 9	Crossed-out
+# 10	Primary(default) font
+# 11–19	Alternative font
+
+
+def shc(fg=None, bg=None, rev=None, under=None, bold=None, faint=None, italic=None, blinks=None, blinkr=None, con=None, cross=None):
+    '''
+Colors:
+- [bright_]black
+- [bright_]red
+- [bright_]green
+- [bright_]yellow
+- [bright_]blue
+- [bright_]magenta
+- [bright_]cyan
+- [bright_]white
+    '''
+    esc = '\x1b['
+    sep = ';'
+    end = 'm'
+    command = []
+    if bold is not None and bold: command.append('1')
+    if bold is not None and not bold: command.append('22')
+    if faint is not None and faint: command.append('2')
+    if faint is not None and not faint: command.append('22')
+    if italic is not None and italic: command.append('3')
+    if italic is not None and not italic: command.append('23')
+    if under is not None and under: command.append('4')
+    if under is not None and not under: command.append('24')
+    # if blinks: command.append('5')
+    # if blinkr: command.append('6')
+    if rev is not None and rev: command.append('7')
+    if rev is not None and not rev: command.append('27')
+    # if con: command.append('8')
+    # if cross: command.append('9')
+
+    if fg:
+        command.append(str(getattr(cols, fg)[0]))
+
+    if bg:
+        command.append(str(getattr(cols, bg)[1]))
+
+    if not command:
+        command.append('0')
+
+    return esc + sep.join(command) + end
+
+def print_colors():
+    colornames = [
+        'black',
+        'red',
+        'green',
+        'yellow',
+        'blue',
+        'magenta',
+        'cyan',
+        'white',
+    ]
+
+    for c in colornames:
+        print '{name:9}{norm}{name:9}{rst}{bold}{name:9}{rst}{bright}{name:9}{rst}{faint}{name:9}{rst}{rev}{name:9}{rst}'.format(
+            name=c,
+            rst=shc(),
+            norm=shc(c),
+            bold=shc(c, bold=True),
+            bright=shc('bright_'+c),
+            faint=shc(c, faint=True),
+            rev=shc(c, rev=True),
+        )
+

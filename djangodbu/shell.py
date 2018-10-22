@@ -4,16 +4,30 @@ from __future__ import unicode_literals
 
 import sys
 import inspect
-import pprint
+import pprint, contextlib
+
 import re
 import types
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from itertools import chain, izip_longest
 from math import ceil
 from cStringIO import StringIO
+from datetime import datetime
 
 class MultiValueDict(object):
     pass
+
+@contextlib.contextmanager
+def pprint_OrderedDict():
+    pp_orig = pprint._sorted
+    od_orig = OrderedDict.__repr__
+    try:
+        pprint._sorted = lambda x:x
+        OrderedDict.__repr__ = dict.__repr__
+        yield
+    finally:
+        pprint._sorted = pp_orig
+        OrderedDict.__repr__ = od_orig
 
 
 try:
@@ -132,6 +146,7 @@ class default_colors(object):
         self.BOLD = '\033[1m'
         self.UNDERLINE = '\033[4m'
         self.REVERSE = '\033[7m'
+        self.FAINT = '\033[2m'
 
 class red_colors(object):
     def __init__(self):
@@ -177,6 +192,7 @@ class red_colors(object):
         self.BOLD = '\033[1m'
         self.UNDERLINE = '\033[4m'
         self.REVERSE = '\033[7m'
+        self.FAINT = '\033[2m'
 
 _CLR = default_colors()
 
@@ -307,6 +323,11 @@ TYPE_SUBSTITUTIONS = [
     ('django.core.exceptions.FieldDoesNotExist', 'FieldDoesNotExist'),
 ]
 
+def _extract_model(obj):
+    obj_repr = repr(obj)
+    m = re.match(r"<class '([A-Za-z.]*)\.(.*)'>", obj_repr)
+    return m.groups() if m else (None, None)
+
 def type_to_category_value(thing):
     if inspect.ismodule(thing):
         #print "module", uni(thing.__name__)
@@ -350,6 +371,9 @@ def type_to_category_value(thing):
 
     if uni(type(thing)).find('RelatedManager') != -1:
         #print "related manager", uni(thing.count())
+        module_path, model = _extract_model(thing.__dict__.get('model', None))
+        if model:
+            return ('RELATED', '{} {}({})'.format(uni(thing.count()), _CLR.BLACK_B, model))
         return ('RELATED', uni(thing.count()))
     if isinstance(thing, types.BuiltinFunctionType) or isinstance(thing, types.BuiltinMethodType):
         #print "builtin function, builtin method"
@@ -402,7 +426,7 @@ def dormm(obj, ignore_builtin=True, values_only=True, minimal=False, padding=0, 
 # TODO: search -> search dicts / lists ?
 # TODO: escape newlines -> ↵
 # TODO: dormv -> values only -> dont show types, ids, functions, put values first
-def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, callables=None, values=None, v=None, c=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None, paginate=True, references_only=False):
+def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, callables=None, values=None, v=None, c=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None, paginate=True, references_only=False, qs_values=False):
     """
 Debug django ORM. pretty prints:
   - Model instances
@@ -438,20 +462,30 @@ Returns:
             terminal_width = get_terminal_size()[0]
             pprint.pprint(obj, indent=2, width=terminal_width - padding, stream=stream)
             return
-        pprint.pprint(obj, indent=2)
+        with pprint_OrderedDict():
+            if isinstance(obj, set):
+                pprint.pprint(list(obj), indent=2, width=2)
+            else:
+                pprint.pprint(obj, indent=2, width=2)
         return
 
     if isinstance(obj, defaultdict):
-        pprint.pprint(dict(obj), indent=2)
+        pprint.pprint(dict(obj), indent=2, width=2)
         return
 
     if isinstance(obj, MultiValueDict):
-        pprint.pprint([(k, v) for (k, v) in obj.iteritems()])
+        pprint.pprint([(k, v) for (k, v) in obj.iteritems()], indent=2, width=2)
         return
 
     # print sql
     if isinstance(obj, Query) or isinstance(obj, RawQuery):
         print_query(obj)
+        return
+
+    # ordered dict -> show as json would?
+    if isinstance(obj, OrderedDict):
+        with pprint_OrderedDict():
+            pprint.pprint(obj, indent=2, width=2)
         return
 
     # TODO: print members of a module
@@ -471,6 +505,9 @@ Returns:
 
         if c is not None and callables is None:
             callables = [call.strip() for call in c.split(',')]
+
+        if values is None and qs_values:
+            values = get_value_attribute_names(obj)
 
         if values is not None:
             print obj.model
@@ -709,7 +746,7 @@ def _print_minimal_values(values_row, selected_values, additional=None):
     for key in selected_values:
         data = values_row.get(key)
         if isinstance(data, (unicode, str)):
-            values2.append(data)
+            values2.append(nice_string(data, maxlen=40))
         #     values2.append(unicode(data.decode('utf-8', 'replace'), 'utf-8', 'replace') + 'X')
         # elif isinstance(data, unicode):
         #     #values2.append(data.encode('utf-8', 'replace') + 'Z')
@@ -721,6 +758,9 @@ def _print_minimal_values(values_row, selected_values, additional=None):
                 values2.append(_CLR.GREEN+'True'+_CLR.RESET)
             else:
                 values2.append(_CLR.RED+'False'+_CLR.RESET)
+        elif isinstance(data, datetime):
+            values2.append(data.strftime('%y%m%d-%H%M'))
+
         elif data is None:
             values2.append(_CLR.BLACK_B+'None'+_CLR.RESET)
         else:
@@ -764,6 +804,12 @@ def get_callable_value(obj, callable_prop):
             except Exception as e:
                 value = 'ERR: {}'.format(e)
 
+    elif callable_prop is not None and not hasattr(obj, callable_prop):
+        raise Exception(u"No callable prop found '{}', choices are: \n{}".format(
+            callable_prop,
+            ',\n'.join(_get_callables(obj))
+        ))
+
     elif callable_prop is None and hasattr(obj, 'name'):
         attr = getattr(obj, 'name')
         if not callable(attr):
@@ -780,6 +826,16 @@ def get_callable_value(obj, callable_prop):
     # print value
 
     return uni(value)
+
+def _get_callables(obj):
+    callables = []
+    for attr_name in dir(obj):
+        if attr_name.startswith('_') or attr_name == 'objects':
+            continue
+        attr = getattr(obj, attr_name)
+        if callable(attr):
+            callables.append(attr_name)
+    return callables
 
 def _print_minimal_callable(obj, callable_prop):
     _id = ''
@@ -868,6 +924,58 @@ def ansilen(line):
     ''' length of ansi sequence'''
     return len(line) - lenesc(line)
 
+def get_value_attribute_names(qs):
+    obj = qs.first()
+    if not obj:
+        print 'no rows?'
+        return None
+
+    attr_names = []
+    for attr_name in dir(obj):
+        if (
+            attr_name.startswith('_')
+            or attr_name == 'objects'
+            #or attr_name == 'Meta'
+        ):
+            print attr_name, ':', 'is ignored'
+            continue
+
+        attr = None
+        try:
+            attr = getattr(obj, attr_name)
+            cat, val = type_to_category_value(attr)
+        except Exception as e:
+            print "E", attr_name, e
+            continue
+
+        if not cat in ['BOOL', 'STRING', 'NUMBER', 'DATE', 'LIST']:
+            print attr_name, ':', 'is not value'
+            continue
+
+        is_prop = isinstance(getattr(type(obj), attr_name, None), property)
+        is_const = attr_name.isupper()
+        is_id = re.match(r'(.*_)?id$', attr_name)
+        if (is_prop or is_const or is_id):
+            print attr_name, ':', 'is prop / const / id'
+            continue
+
+        attr_names.append(attr_name)
+    return attr_names
+
+def nice_string(text, maxlen=0, show_whitespace=False):
+    if show_whitespace:
+        raise Exception('not implemented')
+    else:
+        text = text.replace('\n', ' ').replace('\t', ' ')
+
+    if maxlen and len(text) > maxlen:
+        text = text[:maxlen - 1] + '…'
+
+    return text
+
+
+
+
 # TODO: retain first letter even if vocal
 # TODO: split into chunks around space / _ and squish each part individually
 # TODO: pass in list of other words to detect similarities and drop them
@@ -897,7 +1005,6 @@ def squish_to_size(string, size):
             position = len(string) - 1 - re_con.search(rstring).start()
             string = string[:position] + string[position + 1:]
             continue
-
 
         string = string[:-1]
     return string
@@ -1113,7 +1220,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         if is_const:
             attr_name = _CLR.BOLD + _CLR.B_BLACK_B + attr_name
         if is_id:
-            attr_name = _CLR.UNDERLINE + attr_name
+            attr_name = _CLR.FAINT + attr_name
         if values_only == 2 and (is_prop or is_const or is_id):
             continue
 
@@ -1240,7 +1347,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
             # count number of escapecharacters and add it to width
             if not color:
                 ansi = ansilen(column)
-                STREAM.write(strip_ansi('{column:{column_width}.{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi)))
+                STREAM.write(strip_ansi('{column:<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi)))
             else:
                 ansi = ansilen(column)
                 # STREAM.write('{column:·<{column_width}.{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
