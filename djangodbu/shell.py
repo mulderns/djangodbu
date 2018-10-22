@@ -121,6 +121,7 @@ class default_colors(object):
         self.YELLOW_B  = '\033[1;33m'
         self.WHITE_B   = '\033[1;37m'
         self.BLACK_B   = '\033[1;30m'
+        self.B_BLACK   = '\033[0;90m'
 
         self.RESET = '\033[0m'
 
@@ -132,7 +133,7 @@ class default_colors(object):
         self.B_MAGENTA = '\033[0;45m'
         self.B_YELLOW  = '\033[0;43m'
         self.B_WHITE   = '\033[0;47m'
-        self.B_BLACK   = '\033[0;40m'
+        # self.B_BLACK   = '\033[0;40m'
 
         self.B_RED_B     = '\033[30;41m'
         self.B_GREEN_B   = '\033[30;42m'
@@ -141,7 +142,7 @@ class default_colors(object):
         self.B_MAGENTA_B = '\033[30;45m'
         self.B_YELLOW_B  = '\033[30;43m'
         self.B_WHITE_B   = '\033[30;47m'
-        self.B_BLACK_B   = '\033[30;40m'
+        self.B_BLACK_B   = '\033[2;30;90m'
 
         self.BOLD = '\033[1m'
         self.UNDERLINE = '\033[4m'
@@ -274,7 +275,7 @@ COLORS_CATEGORY = {
     'CLASS'   : _CLR.YELLOW_B,
     'DATE'    : _CLR.CYAN,
     'OTHER'   : _CLR.RESET,
-    'NONE'    : _CLR.BLACK_B,
+    'NONE'    : _CLR.B_BLACK,
     'ERROR'   : _CLR.RED,
 }
 
@@ -305,7 +306,7 @@ def get_COLORS_CATEGORY():
         'CLASS'   : _CLR.YELLOW_B,
         'DATE'    : _CLR.CYAN,
         'OTHER'   : _CLR.RESET,
-        'NONE'    : _CLR.BLACK_B,
+        'NONE'    : _CLR.B_BLACK,
         'ERROR'   : _CLR.RED,
     }
 
@@ -373,7 +374,7 @@ def type_to_category_value(thing):
         #print "related manager", uni(thing.count())
         module_path, model = _extract_model(thing.__dict__.get('model', None))
         if model:
-            return ('RELATED', '{} {}({})'.format(uni(thing.count()), _CLR.BLACK_B, model))
+            return ('RELATED', '{} {}({})'.format(uni(thing.count()), _CLR.B_BLACK, model))
         return ('RELATED', uni(thing.count()))
     if isinstance(thing, types.BuiltinFunctionType) or isinstance(thing, types.BuiltinMethodType):
         #print "builtin function, builtin method"
@@ -553,7 +554,7 @@ Returns:
                             choice = _CLR.GREEN + choice + _CLR.RESET
 
                         if id_handle in choice_ids:
-                            color = _CLR.GREEN if id_handle in values else _CLR.BLACK_B
+                            color = _CLR.GREEN if id_handle in values else _CLR.B_BLACK
 
                             choices_processed.append(choice + color +' (id)'+ _CLR.RESET)
                             choice_ids.remove(id_handle)
@@ -567,7 +568,7 @@ Returns:
 
                     print 'FieldError:'
                     for choice in choices_processed:
-                        print _CLR.BLACK_B + '- ' + _CLR.RESET + choice
+                        print _CLR.B_BLACK + '- ' + _CLR.RESET + choice
 
                     return
 
@@ -607,7 +608,7 @@ Returns:
                 print ''.join(['-' for _ in xrange(get_terminal_size()[0])])
 
                 for item_id, datas in lines:
-                    print "{col1}{id}{col2}: {reset}{values}".format(col1=_CLR.WHITE, id=item_id, col2=_CLR.BLACK_B, reset=_CLR.RESET, values='  '.join(
+                    print "{col1}{id}{col2}: {reset}{values}".format(col1=_CLR.WHITE, id=item_id, col2=_CLR.B_BLACK, reset=_CLR.RESET, values='  '.join(
                             ["{value}{pad}".format(
                                 value=l if l is not None else '',
                                 pad=''.join([' ' for _ in xrange(w - lenesc(l))])
@@ -762,7 +763,7 @@ def _print_minimal_values(values_row, selected_values, additional=None):
             values2.append(data.strftime('%y%m%d-%H%M'))
 
         elif data is None:
-            values2.append(_CLR.BLACK_B+'None'+_CLR.RESET)
+            values2.append(_CLR.B_BLACK+'None'+_CLR.RESET)
         else:
             # print '>>', data
             values2.append(unicode(data))
@@ -865,7 +866,7 @@ def _print_minimal_callable(obj, callable_prop):
     elif callable_prop is None and hasattr(obj, '__str__'):
         value = unicode(obj.__str__().decode('utf-8', 'replace'))
 
-    print "{}{}{}: {}{}".format(_CLR.WHITE, _id, _CLR.BLACK_B, _CLR.RESET, uni(value))
+    print "{}{}{}: {}{}".format(_CLR.WHITE, _id, _CLR.B_BLACK, _CLR.RESET, uni(value))
 
 
 def _print_minimal(obj, annotation=None):
@@ -887,7 +888,7 @@ def _print_minimal(obj, annotation=None):
         if not callable(attr):
             value = attr
 
-    print "{}{}{}: {}{}  {}{}{}".format(_CLR.WHITE, _id, _CLR.BLACK_B, _CLR.RESET, uni(value), _CLR.BLACK_B, annotation if annotation is not None else '', _CLR.RESET)
+    print "{}{}{}: {}{}  {}{}{}".format(_CLR.WHITE, _id, _CLR.B_BLACK, _CLR.RESET, uni(value), _CLR.B_BLACK, annotation if annotation is not None else '', _CLR.RESET)
 
 
 def dorme(*args, **kwargs):
@@ -1180,7 +1181,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
 
         if val is not None and truncate and len(attr_name) + lenescU(val) > truncate:
-            val = ('{}'.format(val))[:truncate - (len(attr_name) + 2)] + _CLR.BLACK_B + '..'
+            val = ('{}'.format(val))[:truncate - (len(attr_name) + 2)] + _CLR.B_BLACK + '..'
 
         # shorten some common types
         match = re.search(RE_STRIP_TYPE, uni(type(attr)))
@@ -1246,7 +1247,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
             value = (': {}'.format(value) if value else '')
             # lines.append("{col1}{type:=>{width}}{col2} {name}{rst}{value}".format(col1=BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=RESET, value=value, width=category.type_max_width))
-            lines.append("{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=_CLR.BLACK_B, type=attr_type, col2=COLOR, name=attr_name, rst=_CLR.RESET, value=value, width=category.type_max_width))
+            lines.append("{col1}{type:>{width}}{col2} {name}{rst}{value}".format(col1=_CLR.B_BLACK, type=attr_type, col2=COLOR, name=attr_name, rst=_CLR.RESET, value=value, width=category.type_max_width))
             value_length = lenesc("{name}{value}".format(name=attr_name,  value=value)) + 1
             if value_max_width < value_length:
                 value_max_width = value_length
