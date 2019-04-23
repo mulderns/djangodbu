@@ -8,7 +8,7 @@ import pprint, contextlib
 
 import re
 import types
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, Counter
 from itertools import chain, izip_longest
 from math import ceil
 from cStringIO import StringIO
@@ -29,6 +29,25 @@ def pprint_OrderedDict():
         pprint._sorted = pp_orig
         OrderedDict.__repr__ = od_orig
 
+def _sanitize_defaultdicts_list(l):
+    for i, item in enumerate(l):
+        l[i] = sanitize_defaultdicts(item)
+    return l
+
+def _sanitize_defaultdicts_dict(d):
+    if isinstance(d, (defaultdict, Counter)):
+        d = dict(d)
+    for k, v in d.iteritems():
+        d[k] = sanitize_defaultdicts(v)
+    return d
+
+def sanitize_defaultdicts(obj):
+    if isinstance(obj, list):
+        return _sanitize_defaultdicts_list(obj)
+    if isinstance(obj, (dict, OrderedDict, defaultdict)):
+        return _sanitize_defaultdicts_dict(obj)
+    return obj
+
 
 try:
     from django.db.models import Model
@@ -38,6 +57,7 @@ try:
     from django.db.models.manager import BaseManager
     from django.db.models import Model
     from django.utils.datastructures import MultiValueDict
+    from django.core.paginator import Paginator
 except:
     print "Could not import Django"
     class Model(object):
@@ -458,7 +478,7 @@ Returns:
     None
     """
     # print lists and such with pprint
-    if type(obj) in (types.ListType, types.DictType, types.TupleType) or isinstance(obj, set):
+    if ignore_builtin and type(obj) in (types.ListType, types.DictType, types.TupleType) or isinstance(obj, set):
         if values_only and stream is not None:
             terminal_width = get_terminal_size()[0]
             pprint.pprint(obj, indent=2, width=terminal_width - padding, stream=stream)
@@ -467,24 +487,25 @@ Returns:
             if isinstance(obj, set):
                 pprint.pprint(list(obj), indent=2, width=2)
             else:
-                pprint.pprint(obj, indent=2, width=2)
+                obj2 = sanitize_defaultdicts(obj)
+                pprint.pprint(obj2, indent=2, width=2)
         return
 
-    if isinstance(obj, defaultdict):
+    if ignore_builtin and isinstance(obj, defaultdict):
         pprint.pprint(dict(obj), indent=2, width=2)
         return
 
-    if isinstance(obj, MultiValueDict):
+    if ignore_builtin and isinstance(obj, MultiValueDict):
         pprint.pprint([(k, v) for (k, v) in obj.iteritems()], indent=2, width=2)
         return
 
     # print sql
-    if isinstance(obj, Query) or isinstance(obj, RawQuery):
+    if ignore_builtin and isinstance(obj, Query) or isinstance(obj, RawQuery):
         print_query(obj)
         return
 
     # ordered dict -> show as json would?
-    if isinstance(obj, OrderedDict):
+    if ignore_builtin and isinstance(obj, OrderedDict):
         with pprint_OrderedDict():
             pprint.pprint(obj, indent=2, width=2)
         return
@@ -501,6 +522,7 @@ Returns:
 
     # iterate querysets
     if isinstance(obj, QuerySet) and ignore_builtin:
+        lines_printed = 0
         if v is not None and values is None:
             values = [val.strip() for val in v.split(',')]
 
@@ -615,6 +637,7 @@ Returns:
                             ) for l, w in zip(datas, col_max)]
                         )
                     )
+                    lines_printed += 1
 
                 if done < total:
                     try:
@@ -665,6 +688,7 @@ Returns:
                     else:
                         # TODO: separate
                         _print_minimal(item)
+                    lines_printed += 1
 
                 if done < total:
                     try:
@@ -696,14 +720,15 @@ Returns:
                     except KeyboardInterrupt as e:
                         break
 
-        print "= {}{}{}".format(_CLR.RED, obj.count(), _CLR.RESET)
+        objcount = total if total is not None else obj.count()
+        print "= {}{}{}{}".format(_CLR.RED, objcount, _CLR.RESET, ' / {}'.format(lines_printed) if lines_printed and lines_printed != objcount else '')
         if (
             autoquery
             and v is None
             and values is None
             and callable is None
             and autoquery_queryset
-            and obj.count() == 1
+            and objcount == 1
         ):
             _print_orm(obj.first(), ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate)
 
@@ -722,21 +747,25 @@ def dormmm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0
 
 
 def paginateQuerySet(queryset, pagerowcount, autosense=True, disable=False):
-    total = queryset.count()
+    # total = queryset.count()
     if disable:
-        yield total, total, queryset
+        yield None, None, queryset
         return
     # print "paginating {}/{}".format(total, pagerowcount)
 
+    paginator = Paginator(queryset, pagerowcount)
+    total = paginator.count # excecute query
     # autosense paginates only when output is more than 2.5 x screen size
     if autosense and total / float(pagerowcount) <= 2.5:
         yield total, total, queryset
 
     else:
         done = 0
+        on_page = 1
         while done < total:
-            yield total, min(done + pagerowcount, total), queryset[done:done + pagerowcount]
+            yield total, min(done + pagerowcount, total), paginator.page(on_page).object_list#queryset[done:done + pagerowcount]
             done += pagerowcount
+            on_page += 1
 
 
 def _print_minimal_values(values_row, selected_values, additional=None):
@@ -870,6 +899,10 @@ def _print_minimal_callable(obj, callable_prop):
 
 
 def _print_minimal(obj, annotation=None):
+    if isinstance(obj, (unicode, str)):
+        print obj
+        return
+
     _id = ''
     if hasattr(obj, 'id'):
         _id = obj.id
