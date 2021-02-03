@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals
 
-from shell import RED_B, RESET, GREEN_B, BLUE_B, BLACK_B, YELLOW_B
+
+from .shell import RED_B, RESET, GREEN_B, BLUE_B, BLACK_B, YELLOW_B, GREEN, RED
 
 def get_types(thing):
     try:
@@ -40,13 +40,13 @@ def _dict_search(somedict, string, case_insensitive=True, path='', done=None):
         _list_search(somedict, string, done=done)
         return
 
-    for key, value in somedict.iteritems():
+    for key, value in somedict.items():
         if (
             case_insensitive and (key.lower().find(string.lower()) != -1) or
             not case_insensitive and (key.find(string) != -1)
         ):
             # print path, 'KEY:', key
-            print "{path} {col2}{key}{col0}:{rst} {value}".format(
+            print("{path} {col2}{key}{col0}:{rst} {value}".format(
                 col0=BLACK_B,
                 # col1=YELLOW_B,
                 col2=RED_B,
@@ -54,15 +54,15 @@ def _dict_search(somedict, string, case_insensitive=True, path='', done=None):
                 key=key,
                 value=repr(value),
                 path=path + BLACK_B + " >" + RESET if path else ''
-            )
+            ))
             # print YELLOW_B + path, RED_B + 'KEY:' + RESET, repr(value)
 
-        if isinstance(value, str) or isinstance(value, unicode):
+        if isinstance(value, str) or isinstance(value, str):
             if (
                 case_insensitive and (value.lower().find(string.lower()) != -1) or
                 not case_insensitive and (value.find(string) != -1)
             ):
-                print "{path} {col2}{key} {col0}:{rst} {value}".format(
+                print("{path} {col2}{key} {col0}:{rst} {value}".format(
                     col0=BLACK_B,
                     col1=YELLOW_B,
                     col2=RED_B,
@@ -70,7 +70,7 @@ def _dict_search(somedict, string, case_insensitive=True, path='', done=None):
                     key=key,
                     value=repr(value),
                     path=path + BLACK_B + " >" + RESET if path else ''
-                )
+                ))
                 # print BLACK_B + path, BLUE_B + 'VALUE:' + RESET, repr(value)
 
         elif isinstance(value, dict):
@@ -106,12 +106,12 @@ def _list_search(somelist, string, case_insensitive=True, path='', done=None):
         return
 
     for i, value in enumerate(somelist):
-        if isinstance(value, str) or isinstance(value, unicode):
+        if isinstance(value, str) or isinstance(value, str):
             if (
                 case_insensitive and (value.lower().find(string.lower()) != -1) or
                 not case_insensitive and (value.find(string) != -1)
             ):
-                print "{path} {col2}{key}{rst} {col0}:{rst} {value}".format(
+                print("{path} {col2}{key}{rst} {col0}:{rst} {value}".format(
                     col0=BLACK_B,
                     col1=YELLOW_B,
                     col2=BLUE_B,
@@ -119,7 +119,7 @@ def _list_search(somelist, string, case_insensitive=True, path='', done=None):
                     key=i,
                     value=repr(value),
                     path=path + BLACK_B + ' >' + RESET if path else ''
-                )
+                ))
                 # print BLACK_B + path, i, BLUE_B + 'VALUE:' + RESET, value
         elif isinstance(value, dict):
             valueid = id(value)
@@ -145,13 +145,13 @@ def ruler(length=71, pad=0, start_from_zero=True):
 
     if start_from_zero:
         return "{}\n{}".format(
-            ''.join([' ' for _ in xrange(pad)]) + rulermrks[:length],
-            ''.join([' ' for _ in xrange(pad)]) + rulerdata[:length]
+            ''.join([' ' for _ in range(pad)]) + rulermrks[:length],
+            ''.join([' ' for _ in range(pad)]) + rulerdata[:length]
         )
 
     return "{}\n{}".format(
-        ''.join([' ' for _ in xrange(pad)]) + rulermrks[1:(length + 1)],
-        ''.join([' ' for _ in xrange(pad)]) + rulerdata[1:(length + 1)]
+        ''.join([' ' for _ in range(pad)]) + rulermrks[1:(length + 1)],
+        ''.join([' ' for _ in range(pad)]) + rulerdata[1:(length + 1)]
     )
 
 _encodings = [
@@ -164,59 +164,59 @@ _encodings = [
 
 
 def ascfix(input_text):
-    if isinstance(input_text, str):
-        print input_text
+    if isinstance(input_text, bytes):
+        print(input_text)
         # print type(input_text),
-        print 'str',
-        print "-decode-> unicode",
+        print('bytes', end=' ')
+        print("-decode-> unicode", end=' ')
         try:
             import chardet
             res = chardet.detect(input_text)
-            print "({en} at ~{con})".format(en=res.get('encoding'), con=res.get('confidence'))
+            print("({en} at ~{con})".format(en=res.get('encoding'), con=res.get('confidence')))
         except:
-            print
+            print()
 
         for enc in _encodings:
-            print "{}: ".format(enc)
+            print("{}: ".format(enc))
 
             try:
                 data = input_text.decode(enc, 'replace')
                 # print "-> OK"
 
                 for enc2 in _encodings:
-                    print "  -> {}:".format(enc2),
+                    print("  -> {}:".format(enc2), end=' ')
                     try:
                         data2 = str(data.encode(enc2, 'replace'))
-                        print data2
+                        print(data2)
                     except Exception as e:
-                        print 'Error'
-                print
+                        print('Error')
+                print()
 
             except Exception as e:
-                print "-> Error"
+                print("-> Error")
 
-    elif isinstance(input_text, unicode):
-        print input_text
+    elif isinstance(input_text, str):
+        print(input_text)
         # print type(input_text),
-        print 'unicode'
-        print "-encode-> str"
+        print('str')
+        print("-encode-> bytes")
 
         for enc in _encodings:
-            print "{}: ".format(enc)
-            print "  e: ",
+            print("{}: ".format(enc))
+            print("  e: ", end=' ')
             try:
                 data = str(input_text.encode(enc, 'replace'))
-                print data, input_text.encode(enc, 'replace')
+                print(data, input_text.encode(enc, 'replace'))
             except Exception as e:
-                print "Error", e,
+                print("Error", e, end=' ')
                 try:
                     data = input_text.encode(enc, 'replace')
-                    print "-> OK"
+                    print("-> OK")
                 except Exception as e:
-                    print "-> Error"
+                    print("-> Error")
 
     else:
-        print "-> not string"
+        print("-> not string")
         return
 import logging
 log = logging.getLogger(__name__)
@@ -225,12 +225,12 @@ def uni(thing):
     if thing is None:
         return None
 
-    if isinstance(thing, unicode):
+    if isinstance(thing, str):
         # log.debug(u'unicode: {}'.format(thing))
         # log.debug('is unicode')
         return thing
 
-    if isinstance(thing, str):
+    if isinstance(thing, bytes):
         # log.debug('str {}'.format(thing))
         # log.debug('is str')
         try:
@@ -241,7 +241,7 @@ def uni(thing):
             charenc = result['encoding']
             return thing.decode(charenc, 'replace')
 
-    if isinstance(thing, (int, float, long)):
+    if isinstance(thing, (int, float)):
         # log.debug(u'number: {}'.format(thing))
         # log.debug('is number')
         return '{}'.format(thing)
@@ -287,7 +287,7 @@ def get_subqueus_req(elements, first=True):
 
 class _dict2props(object):
     def __init__(self, **kwargs):
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             setattr(self, k, v)
 
 cols = _dict2props(**{
@@ -378,8 +378,14 @@ def print_colors():
         'white',
     ]
 
+    print('RESET    ' + \
+          'NORMAL   ' + \
+          'BOLD     ' + \
+          'BRIGHT   ' + \
+          'FAINT    ' + \
+          'REVERSE  ')
     for c in colornames:
-        print '{name:9}{norm}{name:9}{rst}{bold}{name:9}{rst}{bright}{name:9}{rst}{faint}{name:9}{rst}{rev}{name:9}{rst}'.format(
+        print('{name:9}{norm}{name:9}{rst}{bold}{name:9}{rst}{bright}{name:9}{rst}{faint}{name:9}{rst}{rev}{name:9}{rst}'.format(
             name=c,
             rst=shc(),
             norm=shc(c),
@@ -387,5 +393,64 @@ def print_colors():
             bright=shc('bright_'+c),
             faint=shc(c, faint=True),
             rev=shc(c, rev=True),
-        )
+        ))
+
+def color_bool(value):
+    if value:
+        return '{}{}{}'.format(GREEN, value, RESET)
+    return '{}{}{}'.format(RED, value, RESET)
+
+
+def ddiff(da, db, annotate=None):
+    from collections import OrderedDict
+    ka = set(da.keys())
+    kb = set(db.keys())
+
+    path = '[{}]'.format(annotate) if annotate else ''
+
+    for k in ka.union(kb):
+        if k not in ka:
+            print('{} + {}'.format(path, k))
+            continue
+
+        if k not in kb:
+            print('{} - {}'.format(path, k))
+            continue
+
+        va = da[k]
+        vb = db[k]
+
+        if type(va) != type(vb):
+            if isinstance(va, (dict, OrderedDict)) and isinstance(vb, (dict, OrderedDict)):
+                pass
+            elif isinstance(va, str) and isinstance(vb, str):
+                pass
+            else:
+                print('{}: MOD  {} - {}'.format(k, type(va),type(vb)))
+                continue
+
+        if isinstance(va, (tuple, list)):
+            ldiff(va, vb)
+            continue
+
+        if isinstance(va, (dict, OrderedDict)):
+            ddiff(va, vb, k)
+            continue
+
+        if isinstance(va, str) and isinstance(vb, str):
+            from django.utils.encoding import smart_text
+            va = smart_text(va)
+            vb = smart_text(vb)
+
+        if va != vb:
+            print('{}: MOD  {} - {}'.format(k, va, vb))
+
+def ldiff(la, lb, annotate=None):
+    if len(la) != len(lb):
+        print('{}: LEN  {} - {}'.format(annotate, len(la), len(lb)))
+        return
+
+    for i, (va, vb) in enumerate(zip(la, lb)):
+        if va != vb:
+            print('{} DIFF  {} - {}'.format('[{}][{}]'.format(annotate, i), va, vb))
 

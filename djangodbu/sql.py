@@ -8,7 +8,7 @@
 
 '''
 
-from __future__ import unicode_literals
+
 
 
 import logging
@@ -22,8 +22,8 @@ import sqlparse
 from sqlparse import keywords
 
 # SQL keywords for colorization
-KEYS = keywords.KEYWORDS.keys()
-KEYS.extend(keywords.KEYWORDS_COMMON.keys())
+KEYS = list(keywords.KEYWORDS.keys())
+KEYS.extend(list(keywords.KEYWORDS_COMMON.keys()))
 
 log = logging.getLogger(__name__)
 
@@ -68,9 +68,9 @@ def format_sql(sql):
 
 
 def print_query(query):
-    from utils import uni
+    from .utils import uni
     sqlstring = uni(query.__str__())
-    print colorize_sql(format_sql(sqlstring))
+    print(colorize_sql(format_sql(sqlstring)))
 
 def sqlprint(data, filtering=True, tb=False):
     '''
@@ -101,7 +101,7 @@ def sqlprint(data, filtering=True, tb=False):
             continue
 
         location = '-'
-        if row.has_key('tb'):
+        if 'tb' in row:
             location = _get_location(row['tb'])
 
         sql = format_sql(row['sql'])
@@ -122,9 +122,9 @@ def __format_traceback_debug(tb):
             continue
         simple_file = os.path.basename(frame[0])
         #print "<{f}:{l}:{m}> {t}".format(f=simple_file, l=frame[1], m=frame[2], t=frame[3])
-        print "{f}:{m}:{l:<4} > {t} \t ".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
+        print("{f}:{m}:{l:<4} > {t} \t ".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3]))
 
-    print ""
+    print("")
 
 def _format_traceback(tb):
     #return '\n \033[0;35m>\033[0m '.join("\033[0;34m{file}\033[1;30m:\033[0;36m{module}\033[1;30m:\033[0;37m{linenum:<3}\033[0;35m :\033[0m {text}".format(file=os.path.basename(frame[0]), linenum=frame[1], module=frame[2], text=frame[3]) for frame in tb if not trace_exclude_paths.search(frame[0]))
@@ -152,13 +152,13 @@ def _format_traceback2(tb, exclude=True):
         output = ''
         simple_file = os.path.basename(frame[0])
         if simple_file != prev_file:
-            output = u"\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3}".format(file=os.path.basename(frame[0]), linenum=frame[1])
+            output = "\033[0;34m{file}\033[1;30m:\033[0;37m{linenum:<3}".format(file=os.path.basename(frame[0]), linenum=frame[1])
             prev_file = simple_file
         else:
-            output = u"\033[0;37m{linenum:<3}".format(linenum=frame[1])
+            output = "\033[0;37m{linenum:<3}".format(linenum=frame[1])
 
         if i == last_index:
-            output += u" \033[0;36m{module}\033[0m {text}".format(module=frame[2], text=frame[3])
+            output += " \033[0;36m{module}\033[0m {text}".format(module=frame[2], text=frame[3])
 
         output_frames.append(output)
 
@@ -200,12 +200,12 @@ def sqlcount(data, filtersmall=False, include_sql=False):
 
         counts[key]['time'] += time
 
-        if row.has_key('trace'):
+        if 'trace' in row:
             counts[key]['location'].add(_format_traceback2(row['trace']))
-        elif row.has_key('tb'):
+        elif 'tb' in row:
             counts[key]['location'].add(_format_traceback2(row['tb']))
 
-    results = [(val['count'], val['time'], val['location'], key) for key, val in counts.items() if val['time'] > 0.01 or not filtersmall]
+    results = [(val['count'], val['time'], val['location'], key) for key, val in list(counts.items()) if val['time'] > 0.01 or not filtersmall]
 
     results.sort(key=lambda x: (x[0], x[1]), reverse=True)
 
@@ -248,7 +248,7 @@ def format_stack():
     # file, ln, function, text
     for frame in traceback.extract_stack():
         simple_file = os.path.basename(frame[0])
-        print u"{m:>20.20}:{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
+        print("{m:>20.20}:{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3]))
 
 def format_stack2():
     # file, ln, function, text
@@ -256,8 +256,8 @@ def format_stack2():
     for frame in traceback.extract_stack():
         simple_file = os.path.basename(frame[0])
         if simple_file == prev_file:
-            print u"{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
+            print("{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3]))
         else:
-            print u"{m:>20.20}:{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3])
+            print("{m:>20.20}:{l:<4} > {t}".format(f=frame[0], fs=simple_file, l=frame[1], m=frame[2], t=frame[3]))
         prev_file = simple_file
 

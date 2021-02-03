@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals
+
 
 import sys
 import inspect
@@ -9,9 +9,9 @@ import pprint, contextlib
 import re
 import types
 from collections import defaultdict, OrderedDict, Counter
-from itertools import chain, izip_longest
+from itertools import chain, zip_longest
 from math import ceil
-from cStringIO import StringIO
+from io import StringIO
 from datetime import datetime
 
 class MultiValueDict(object):
@@ -29,6 +29,15 @@ def pprint_OrderedDict():
         pprint._sorted = pp_orig
         OrderedDict.__repr__ = od_orig
 
+@contextlib.contextmanager
+def pprint_ordered():
+    pprint.sorted = lambda arg, *args, **kwargs: arg
+    yield
+    pprint.sorted = sorted
+
+
+
+
 def _sanitize_defaultdicts_list(l):
     for i, item in enumerate(l):
         l[i] = sanitize_defaultdicts(item)
@@ -37,7 +46,7 @@ def _sanitize_defaultdicts_list(l):
 def _sanitize_defaultdicts_dict(d):
     if isinstance(d, (defaultdict, Counter)):
         d = dict(d)
-    for k, v in d.iteritems():
+    for k, v in d.items():
         d[k] = sanitize_defaultdicts(v)
     return d
 
@@ -47,6 +56,8 @@ def sanitize_defaultdicts(obj):
     if isinstance(obj, (dict, OrderedDict, defaultdict)):
         return _sanitize_defaultdicts_dict(obj)
     return obj
+
+
 
 
 try:
@@ -59,7 +70,7 @@ try:
     from django.utils.datastructures import MultiValueDict
     from django.core.paginator import Paginator
 except:
-    print "Could not import Django"
+    print("Could not import Django")
     class Model(object):
         pass
     class QuerySet(object):
@@ -70,9 +81,9 @@ except:
         pass
 
 
-from terminalsize import get_terminal_size
+from .terminalsize import get_terminal_size
 
-from sql import print_query
+from .sql import print_query
 
 
 # TODO: add support for windows cli
@@ -224,9 +235,9 @@ def theme_set_colors(colors):
 def theme_change_colors(colors_dict, new=False):
     colors = default_colors() if new else _CLR
 
-    for key, value in colors_dict.items():
+    for key, value in list(colors_dict.items()):
         if not hasattr(colors, key):
-            print 'no such color:', key
+            print('no such color: {}'.format(key))
             return
         setattr(colors, key, value)
     theme_set_colors(colors)
@@ -236,7 +247,7 @@ def theme_print_colors():
     for attr_name in dir(_CLR):
         if not attr_name.startswith('_') :
             sequence = getattr(_CLR, attr_name)
-            print '{:15} {:18} {}{}{}'.format(attr_name, repr(sequence), sequence, attr_name, RESET)
+            print('{:15} {:18} {}{}{}'.format(attr_name, repr(sequence), sequence, attr_name, RESET))
 
 
 
@@ -353,7 +364,7 @@ def type_to_category_value(thing):
     if inspect.ismodule(thing):
         #print "module", uni(thing.__name__)
         return ('CLASS', uni(thing.__name__))
-    if isinstance(thing, types.TypeType):
+    if isinstance(thing, type):
         #print "type", thing
         return ('OTHER', None)
     if inspect.isclass(thing):
@@ -368,15 +379,15 @@ def type_to_category_value(thing):
     if isinstance(thing, float):
         #print "float", thing
         return ('NUMBER', thing)
-    if isinstance(thing, long):
+    if isinstance(thing, int):
         #print "long", thing
         return ('NUMBER', thing)
-    if isinstance(thing, str):
+    if isinstance(thing, bytes):
         #print "str", uni(thing)
-        return ('STRING', uni(thing).replace(u'\n', u'␤'))
-    if isinstance(thing, unicode):
+        return ('STRING', uni(thing).replace('\n', '␤').replace('\r', '␍'))
+    if isinstance(thing, str):
         #print "unicode", thing
-        return ('STRING', thing.replace(u'\n', u'␤'))
+        return ('STRING', thing.replace('\n', '␤').replace('\r', '␍'))
     if isinstance(thing, list):
         #print "list"
         return ('LIST', len(thing))
@@ -386,7 +397,7 @@ def type_to_category_value(thing):
     if isinstance(thing, tuple):
         #print "tuple"
         return ('LIST', len(thing))
-    if isinstance(thing, types.NoneType):
+    if isinstance(thing, type(None)):
         #print "none"
         return ('NONE', None)
 
@@ -425,7 +436,7 @@ def type_to_category_value(thing):
     if hasattr(thing, '__class__'):
         #print "__class__", uni(thing.name) if hasattr(thing, 'name') and isinstance(thing, (str, unicode)) else None
         # return ('CLASS', uni(thing.name) if hasattr(thing, 'name') and isinstance(thing.name, (str, unicode)) else uni(thing))
-        if hasattr(thing, 'name') and isinstance(thing.name, (str, unicode)):
+        if hasattr(thing, 'name') and isinstance(thing.name, str):
             # print thing
             return ('CLASS', uni(thing.name))
         _repr = uni(thing)
@@ -447,7 +458,28 @@ def dormm(obj, ignore_builtin=True, values_only=True, minimal=False, padding=0, 
 # TODO: search -> search dicts / lists ?
 # TODO: escape newlines -> ↵
 # TODO: dormv -> values only -> dont show types, ids, functions, put values first
-def dorm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, callables=None, values=None, v=None, c=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None, paginate=True, references_only=False, qs_values=False):
+def dorm(
+    obj,
+    ignore_builtin=True,
+    values_only=False,
+    minimal=False,
+    padding=0,
+    callable=None,
+    callables=None,
+    values=None,
+    v=None,
+    c=None,
+    color=True,
+    autoquery=True,
+    truncate=None,
+    search=None,
+    s=None,
+    stream=None,
+    paginate=True,
+    references_only=False,
+    qs_values=False,
+    asc=False,
+    annotate=None):
     """
 Debug django ORM. pretty prints:
   - Model instances
@@ -477,13 +509,18 @@ Args:
 Returns:
     None
     """
+
+    if annotate is not None:
+        print(annotate)
+
+
     # print lists and such with pprint
-    if ignore_builtin and type(obj) in (types.ListType, types.DictType, types.TupleType) or isinstance(obj, set):
+    if ignore_builtin and type(obj) in (list, dict, tuple) or isinstance(obj, set):
         if values_only and stream is not None:
             terminal_width = get_terminal_size()[0]
             pprint.pprint(obj, indent=2, width=terminal_width - padding, stream=stream)
             return
-        with pprint_OrderedDict():
+        with pprint_ordered():
             if isinstance(obj, set):
                 pprint.pprint(list(obj), indent=2, width=2)
             else:
@@ -496,7 +533,7 @@ Returns:
         return
 
     if ignore_builtin and isinstance(obj, MultiValueDict):
-        pprint.pprint([(k, v) for (k, v) in obj.iteritems()], indent=2, width=2)
+        pprint.pprint([(k, v) for (k, v) in obj.items()], indent=2, width=2)
         return
 
     # print sql
@@ -533,7 +570,7 @@ Returns:
             values = get_value_attribute_names(obj)
 
         if values is not None:
-            print obj.model
+            print(obj.model)
             results_per_page = get_terminal_size()[1]-3
             #terminal_width = get_terminal_size()[0]
             pagenum = 0
@@ -556,7 +593,7 @@ Returns:
                     errorre = r"Cannot resolve keyword u?'([^']*)' into field. Choices are:(.*)"
                     m = re.match(errorre, e.args[0])
                     if m is None: # not matching -> some other error -> print
-                        print e
+                        print(e)
                         return
                     wrong = m.groups()[0]
                     wrong_inserted = False
@@ -588,9 +625,9 @@ Returns:
 
                     choices_processed.extend(choice_ids)
 
-                    print 'FieldError:'
+                    print('FieldError:')
                     for choice in choices_processed:
-                        print _CLR.B_BLACK + '- ' + _CLR.RESET + choice
+                        print(_CLR.B_BLACK + '- ' + _CLR.RESET + choice)
 
                     return
 
@@ -598,20 +635,20 @@ Returns:
                 if callable:
                     for row, row_object in zip(page.values('pk', *values), page):
                         callable_value = get_callable_value(row_object, callable)
-                        item_id, datas = _print_minimal_values(row, values, additional=callable_value)
+                        item_id, datas = _print_minimal_values(row, values, additional=callable_value, truncate=truncate)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
                         lines.append(('{:6}'.format(item_id), datas))
                 elif callables:
                     for row, row_object in zip(page.values('pk', *values), page):
                         values_callable = [(call, get_callable_value(row_object, call)) for call in callables]
-                        item_id, datas = _print_minimal_values(row, values, additional=values_callable)
+                        item_id, datas = _print_minimal_values(row, values, additional=values_callable, truncate=truncate)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
                         lines.append(('{:6}'.format(item_id), datas))
                 else:
                     for row in page.values('pk', *values):
-                        item_id, datas = _print_minimal_values(row, values)
+                        item_id, datas = _print_minimal_values(row, values, truncate=truncate)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
                         lines.append(('{:6}'.format(item_id), datas))
@@ -619,41 +656,41 @@ Returns:
                 #print ''.join( v, w in zip(values, col_max) )
 
                 if callable:
-                    values.append(callable if isinstance(callable, (str, unicode)) else 'callable')
-                    print '    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values, col_max)])
+                    values.append(callable if isinstance(callable, str) else 'callable')
+                    print('    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values, col_max)]))
                     values.pop()
                 elif callables:
-                    print '    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values+callables, col_max)])
+                    print('    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values+callables, col_max)]))
                 else:
-                    print '    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values, col_max)])
+                    print('    id: ' + '  '.join(["{:<{width}.{width}}".format(squish_to_size(l, w) if l is not None else '', width=w) for l, w in zip(values, col_max)]))
 
-                print ''.join(['-' for _ in xrange(get_terminal_size()[0])])
+                print(''.join(['-' for _ in range(get_terminal_size()[0])]))
 
                 for item_id, datas in lines:
-                    print "{col1}{id}{col2}: {reset}{values}".format(col1=_CLR.WHITE, id=item_id, col2=_CLR.B_BLACK, reset=_CLR.RESET, values='  '.join(
+                    print("{col1}{id}{col2}: {reset}{values}".format(col1=_CLR.WHITE, id=item_id, col2=_CLR.B_BLACK, reset=_CLR.RESET, values='  '.join(
                             ["{value}{pad}".format(
                                 value=l if l is not None else '',
-                                pad=''.join([' ' for _ in xrange(w - lenesc(l))])
+                                pad=''.join([' ' for _ in range(w - lenesc(l))])
                             ) for l, w in zip(datas, col_max)]
                         )
-                    )
+                    ))
                     lines_printed += 1
 
                 if done < total:
                     try:
                         while True:
-                            userinput = raw_input("-- {} ({}) / {} ({}) -- ".format(done, done/results_per_page, total, int(ceil(total/float(results_per_page)))))
+                            userinput = input("-- {} ({}) / {} ({}) -- ".format(done, done//results_per_page, total, int(ceil(total/float(results_per_page)))))
                             if userinput.startswith('q'):
                                 pagenum = -1
                                 break
                             try:
                                 pagenum = int(userinput)
                                 if done/results_per_page >= pagenum:
-                                    print "paging error: can't go back"
+                                    print("paging error: can't go back")
                                     pagenum = 0
 
                                 elif pagenum > int(ceil(total/float(results_per_page))):
-                                    print "paging error: no such page"
+                                    print("paging error: no such page")
                                     pagenum = 0
                                 else:
                                     # print "\r\033[F" + ''.join([' ' for _ in xrange(terminal_width-4)]) + '\r',
@@ -663,7 +700,7 @@ Returns:
                                     pagenum = 0
                                     # print "\r\033[F" + ''.join([' ' for _ in xrange(terminal_width-4)]) + '\r',
                                     break
-                                print 'paging error: could not parse page number', len(userinput)
+                                print('paging error: could not parse page number {}'.format(len(userinput)))
                                 pass
 
                     except KeyboardInterrupt as e:
@@ -693,18 +730,18 @@ Returns:
                 if done < total:
                     try:
                         while True:
-                            userinput = raw_input("-- {} ({}) / {} ({}) -- ".format(done, done/results_per_page, total, int(ceil(total/float(results_per_page)))))
+                            userinput = input("-- {} ({}) / {} ({}) -- ".format(done, done/results_per_page, total, int(ceil(total/float(results_per_page)))))
                             if userinput.startswith('q'):
                                 pagenum = -1
                                 break
                             try:
                                 pagenum = int(userinput)
                                 if done/results_per_page >= pagenum:
-                                    print "paging error: can't go back"
+                                    print("paging error: can't go back")
                                     pagenum = 0
 
                                 elif pagenum > int(ceil(total/float(results_per_page))):
-                                    print "paging error: no such page"
+                                    print("paging error: no such page")
                                     pagenum = 0
                                 else:
                                     # print "\r\033[F" + ''.join([' ' for _ in xrange(terminal_width-4)]) + '\r',
@@ -714,14 +751,14 @@ Returns:
                                     pagenum = 0
                                     # print "\r\033[F" + ''.join([' ' for _ in xrange(terminal_width-4)]) + '\r',
                                     break
-                                print 'paging error: could not parse page number', len(userinput)
+                                print('paging error: could not parse page number {}'.format(len(userinput)))
                                 pass
 
                     except KeyboardInterrupt as e:
                         break
 
         objcount = total if total is not None else obj.count()
-        print "= {}{}{}{}".format(_CLR.RED, objcount, _CLR.RESET, ' / {}'.format(lines_printed) if lines_printed and lines_printed != objcount else '')
+        print("= {}{}{}{}".format(_CLR.RED, objcount, _CLR.RESET, ' / {}'.format(lines_printed) if lines_printed and lines_printed != objcount else ''))
         if (
             autoquery
             and v is None
@@ -730,14 +767,14 @@ Returns:
             and autoquery_queryset
             and objcount == 1
         ):
-            _print_orm(obj.first(), ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate)
+            _print_orm(obj.first(), ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=truncate, asc=asc)
 
         return
 
     # else print orm debug
     if search is None and s is not None:
         search = s
-    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=50 if truncate is None and not (values_only or references_only) else truncate, search=search, stream=stream, references_only=references_only)
+    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=50 if truncate is None and not (values_only or references_only) else truncate, search=search, stream=stream, references_only=references_only, asc=asc)
 
 
 def dormmm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None):
@@ -768,15 +805,15 @@ def paginateQuerySet(queryset, pagerowcount, autosense=True, disable=False):
             on_page += 1
 
 
-def _print_minimal_values(values_row, selected_values, additional=None):
+def _print_minimal_values(values_row, selected_values, additional=None, truncate=40):
     '''values_row has contents of qs.values(...)'''
     item_id = values_row.pop('pk')
     values2 = []
 
     for key in selected_values:
         data = values_row.get(key)
-        if isinstance(data, (unicode, str)):
-            values2.append(nice_string(data, maxlen=40))
+        if isinstance(data, str):
+            values2.append(nice_string(data, maxlen=truncate))
         #     values2.append(unicode(data.decode('utf-8', 'replace'), 'utf-8', 'replace') + 'X')
         # elif isinstance(data, unicode):
         #     #values2.append(data.encode('utf-8', 'replace') + 'Z')
@@ -795,7 +832,7 @@ def _print_minimal_values(values_row, selected_values, additional=None):
             values2.append(_CLR.B_BLACK+'None'+_CLR.RESET)
         else:
             # print '>>', data
-            values2.append(unicode(data))
+            values2.append(str(data))
 
     if additional is not None:
         if isinstance(additional, list):
@@ -835,7 +872,7 @@ def get_callable_value(obj, callable_prop):
                 value = 'ERR: {}'.format(e)
 
     elif callable_prop is not None and not hasattr(obj, callable_prop):
-        raise Exception(u"No callable prop found '{}', choices are: \n{}".format(
+        raise Exception("No callable prop found '{}', choices are: \n{}".format(
             callable_prop,
             ',\n'.join(_get_callables(obj))
         ))
@@ -860,9 +897,12 @@ def get_callable_value(obj, callable_prop):
 def _get_callables(obj):
     callables = []
     for attr_name in dir(obj):
-        if attr_name.startswith('_') or attr_name == 'objects':
+        if attr_name.startswith('_') or attr_name in ('objects', 'active_objects'):
             continue
-        attr = getattr(obj, attr_name)
+        try:
+            attr = getattr(obj, attr_name)
+        except Exception as e:
+            print('Exception getting callable attribute', attr_name, e)
         if callable(attr):
             callables.append(attr_name)
     return callables
@@ -893,14 +933,14 @@ def _print_minimal_callable(obj, callable_prop):
             value = attr()
 
     elif callable_prop is None and hasattr(obj, '__str__'):
-        value = unicode(obj.__str__().decode('utf-8', 'replace'))
+        value = str(obj.__str__())
 
-    print "{}{}{}: {}{}".format(_CLR.WHITE, _id, _CLR.B_BLACK, _CLR.RESET, uni(value))
+    print("{}{}{}: {}{}".format(_CLR.WHITE, _id, _CLR.B_BLACK, _CLR.RESET, uni(value)))
 
 
 def _print_minimal(obj, annotation=None):
-    if isinstance(obj, (unicode, str)):
-        print obj
+    if isinstance(obj, str):
+        print(obj)
         return
 
     _id = ''
@@ -914,14 +954,14 @@ def _print_minimal(obj, annotation=None):
         value = obj.__unicode__()
 
     elif hasattr(obj, '__str__'):
-        value = unicode(obj.__str__().decode('utf-8', 'replace'))
+        value = str(obj.__str__())
 
     elif hasattr(obj, 'name'):
         attr = getattr(obj, 'name')
         if not callable(attr):
             value = attr
 
-    print "{}{}{}: {}{}  {}{}{}".format(_CLR.WHITE, _id, _CLR.B_BLACK, _CLR.RESET, uni(value), _CLR.B_BLACK, annotation if annotation is not None else '', _CLR.RESET)
+    print("{}{}{}: {}{}  {}{}{}".format(_CLR.WHITE, _id, _CLR.B_BLACK, _CLR.RESET, uni(value), _CLR.B_BLACK, annotation if annotation is not None else '', _CLR.RESET))
 
 
 def dorme(*args, **kwargs):
@@ -929,7 +969,7 @@ def dorme(*args, **kwargs):
     try:
         dorm(*args, **kwargs)
     except Exception as e:
-        print e
+        print(e)
         ipdb.post_mortem()
 
 
@@ -950,7 +990,7 @@ def lenesc(line):
 def lenescU(line):
     if line is None:
         return 0
-    if isinstance(line, unicode) or isinstance(line, str):
+    if isinstance(line, str) or isinstance(line, str):
         return lenesc(line)
     return len("{}".format(line))
 
@@ -961,7 +1001,7 @@ def ansilen(line):
 def get_value_attribute_names(qs):
     obj = qs.first()
     if not obj:
-        print 'no rows?'
+        print('no rows?')
         return None
 
     attr_names = []
@@ -971,7 +1011,7 @@ def get_value_attribute_names(qs):
             or attr_name == 'objects'
             #or attr_name == 'Meta'
         ):
-            print attr_name, ':', 'is ignored'
+            print('{} : is ignored'.format(attr_name))
             continue
 
         attr = None
@@ -979,18 +1019,18 @@ def get_value_attribute_names(qs):
             attr = getattr(obj, attr_name)
             cat, val = type_to_category_value(attr)
         except Exception as e:
-            print "E", attr_name, e
+            print("E", attr_name, e)
             continue
 
         if not cat in ['BOOL', 'STRING', 'NUMBER', 'DATE', 'LIST']:
-            print attr_name, ':', 'is not value'
+            print(attr_name, ':', 'is not value')
             continue
 
         is_prop = isinstance(getattr(type(obj), attr_name, None), property)
         is_const = attr_name.isupper()
         is_id = re.match(r'(.*_)?id$', attr_name)
         if (is_prop or is_const or is_id):
-            print attr_name, ':', 'is prop / const / id'
+            print(attr_name, ':', 'is prop / const / id')
             continue
 
         attr_names.append(attr_name)
@@ -1008,6 +1048,23 @@ def nice_string(text, maxlen=0, show_whitespace=False):
     return text
 
 
+def detect_encoding():
+    iso_soft_hyphen = '­'
+    uni_zero_width_space = '\u200b'
+
+    try:
+        sys.stdout.write(uni_zero_width_space)
+        return 'utf'
+    except:
+        pass
+
+    try:
+        sys.stdout.write(iso_soft_hyphen)
+        return 'iso'
+    except:
+        pass
+
+    return 'ascii'
 
 
 # TODO: retain first letter even if vocal
@@ -1082,6 +1139,54 @@ def squish_to_size2(string, size):
     return string
 
 
+import itertools, sys
+anim_busy = itertools.cycle(['|', '/', '-', '\\'])
+def squish_to_size3(text, size, other_labels):
+    re_voc = re.compile(r'[aeiouyåäö]')
+    re_con = re.compile(r'[bcdfghjklmnpqrstvwxz]')
+    re_pun = re.compile(r'[\.: !\(\)]')
+
+    text = text.strip()
+    major_chunks = text.split('__')
+
+    # parts = text.split('_')
+
+    length = len(text)
+
+    if len(major_chunks) > 1:
+        pass
+
+    while len(string) > size:
+
+        sys.stderr.write(next(anim_busy))
+        for part_i, part in enumerate(parts):
+            # TODO: here
+
+            rtext = text[::-1]
+            count_pun = len(re_pun.findall(text))
+            if count_pun > 0:
+                position = len(text) - 1 - re_pun.search(rtext).start()
+                text = text[:position] + text[position + 1:]
+                continue
+
+            count_voc = len(re_voc.findall(text))
+            if count_voc > 0:
+                position = len(text) - 1 - re_voc.search(rtext).start()
+                text = text[:position] + text[position + 1:]
+                continue
+
+            count_con = len(re_con.findall(text))
+            if count_con > 0:
+                position = len(text) - 1 - re_con.search(rtext).start()
+                text = text[:position] + text[position + 1:]
+                continue
+
+
+            text = text[:-1]
+        sys.stderr.write('\b')
+    return text
+
+
 def dormnc(*args, **kwargs):
     dorm(*args, color=False, **kwargs)
 
@@ -1098,11 +1203,11 @@ class Category(object):
         if width > self.type_max_width:
             self.type_max_width = width
 
-    def __unicode__(self):
+    def __str__(self):
         return "{}({}+{})".format(self.category, self.type_max_width, self.value_max_width)
 
-    def __str__(self):
-        return "hello"
+    # def __str__(self):
+    #     return "hello"
 
 
 class Group(object):
@@ -1123,7 +1228,7 @@ class Group(object):
         return "cats:{} width:{}".format(len(self.categories), self.width)
 
     def __str__(self):
-        return "{}/{}".format(','.join([x.__unicode__() for x in self.categories]), self.width)
+        return "{}/{}".format(','.join([x.__str__() for x in self.categories]), self.width)
 
     def __repr__(self):
         return self.__str__()
@@ -1152,14 +1257,21 @@ def calculate_width(groups):
 
 
 # TODO: fix unicode / str : convert all str to unicode
-def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None, stream=None, references_only=False):
+def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None, stream=None, references_only=False, asc=False):
     colors_category = NOCOLORS_CATEGORY if not color else get_COLORS_CATEGORY()
+
+    supported_encoding = detect_encoding()
+    if supported_encoding == 'ascii':
+        print("output ascii")
+        asc = True
+
+    print_asc = (lambda x: print(x)) if not asc else (lambda x: print(x.encode('ascii', 'replace').decode()))
 
     # print object identifier
     if stream is not None:
         stream.write( ("{} : {}\n".format(uni(obj), type(obj))).encode('utf-8') )
     else:
-        print "{} : {}".format(uni(obj), type(obj))
+        print_asc("{} : {}".format(uni(obj), type(obj)))
 
     categories = defaultdict(Category)
 
@@ -1173,7 +1285,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
             attr = getattr(obj, attr_name)
             cat, val = type_to_category_value(attr)
         except Exception as e:
-            print "exception:", e
+            print_asc("exception: {}".format(e))
             cat = 'ERROR'
             val = ''
             error = uni(type(e))
@@ -1193,7 +1305,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
                 val_buffer.seek(0)
                 lines = [uni(line) for line in val_buffer.readlines()]
                 if len(lines) > 1:
-                    PAD = ''.join([' ' for _ in xrange(padding+8)])
+                    PAD = ''.join([' ' for _ in range(padding+8)])
                     val = '\n' + ''.join(PAD+line for line in lines).rstrip()
                 else:
                     val = ''.join(line for line in lines).rstrip()
@@ -1232,16 +1344,16 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
                 break
         else:
             if attr_type.count('.') > 1:
-                attr_type = '.'.join(chain(map(lambda x: x[:2], attr_type.split('.')[:-1]), (attr_type.split('.')[-1],)))
+                attr_type = '.'.join(chain([x[:2] for x in attr_type.split('.')[:-1]], (attr_type.split('.')[-1],)))
 
         if search is not None:
             if not (
                 attr_name.lower().find(search.lower()) != -1 or
-                (isinstance(val, (str, unicode)) and val.lower().find(search.lower()) != -1)
+                (isinstance(val, str) and val.lower().find(search.lower()) != -1)
             ):
                 continue
 
-        if not categories.has_key(cat):
+        if cat not in categories:
             categories[cat].category = cat
 
         is_prop = isinstance(getattr(type(obj), attr_name, None), property)
@@ -1261,12 +1373,12 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         categories[cat].attr_list.append((attr_name , attr_type, val))
 
     # remove builtin if preset
-    if ignore_builtin and categories.has_key('BUILTIN'):
+    if ignore_builtin and 'BUILTIN' in categories:
         categories.pop('BUILTIN')
 
     # then when we have the type_max_width we can build the lines
-    for cat, category in categories.iteritems():
-        COLOR = colors_category[cat] if colors_category.has_key(cat) else _CLR.RESET
+    for cat, category in categories.items():
+        COLOR = colors_category[cat] if cat in colors_category else _CLR.RESET
         lines = []
         value_max_width = 0
 
@@ -1294,13 +1406,13 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
     for grouping in COLUMN_GROUPS:
         group = Group()
         for category in grouping:
-            if categories.has_key(category):
+            if category in categories:
                 group.categories.append(categories.pop(category))
         groups.append(group)
 
     # put all the rest into last group
     group = Group()
-    for category in categories.keys():
+    for category in list(categories.keys()):
         group.categories.append(categories.pop(category))
     groups.append(group)
 
@@ -1328,7 +1440,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
     DEBUG = False
 
     if DEBUG:
-        print 'terminal: {} x {}'.format(terminal_width, terminal_height)
+        print('terminal: {} x {}'.format(terminal_width, terminal_height))
 
     # brute force layout to min height
     layouts_fit_width = [layout for layout in get_subqueus_req(groups) if _calc_layout_width(layout) <= terminal_width]
@@ -1361,34 +1473,37 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         output_columns.append(output_lines)
 
     # PAD = ''.join('+' for _ in xrange(padding))
-    PAD = ''.join(' ' for _ in xrange(padding))
+    PAD = ''.join(' ' for _ in range(padding))
 
     if DEBUG: #DEBUG
-        print "output columns {}: {} (from right to left)".format(len(output_columns), output_column_widths)
-        from utils import ruler
+        print("output columns {}: {} (from right to left)".format(len(output_columns), output_column_widths))
+        from .utils import ruler
         _padd = 0
         for cw in reversed(output_column_widths):
-            print ruler(cw, _padd, start_from_zero=False)
+            print(ruler(cw, _padd, start_from_zero=False))
             _padd += cw
 
     STREAM = stream if stream is not None else sys.stdout
 
+    STREAM_write = (lambda x: STREAM.write(x)) if not asc else (lambda x: STREAM.write(x.encode('ascii', 'replace').decode()))
+
     # print output columns
-    for line in izip_longest(*reversed(output_columns), fillvalue=''):
+    for line in zip_longest(*reversed(output_columns), fillvalue=''):
         if padding:
             STREAM.write(PAD)
         for column, width in zip(line, reversed(output_column_widths)):
             # count number of escapecharacters and add it to width
             if not color:
                 ansi = ansilen(column)
-                STREAM.write(strip_ansi('{column:<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi)))
+                # STREAM.write(strip_ansi('{column:<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi)))
+                STREAM_write(strip_ansi('{column:<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi)))
             else:
                 ansi = ansilen(column)
                 # STREAM.write('{column:·<{column_width}.{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
                 # STREAM.write('{column:<{column_width}.{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
                 # don't truncate for values_only
                 # STREAM.write('{column:·<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
-                STREAM.write('{column:<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
+                STREAM_write('{column:<{column_width}}'.format(column=column, column_width=min(width, terminal_width) + ansi))
         STREAM.write('\n')
 
 
