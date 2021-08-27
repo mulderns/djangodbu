@@ -17,17 +17,6 @@ from datetime import datetime
 class MultiValueDict(object):
     pass
 
-@contextlib.contextmanager
-def pprint_OrderedDict():
-    pp_orig = pprint._sorted
-    od_orig = OrderedDict.__repr__
-    try:
-        pprint._sorted = lambda x:x
-        OrderedDict.__repr__ = dict.__repr__
-        yield
-    finally:
-        pprint._sorted = pp_orig
-        OrderedDict.__repr__ = od_orig
 
 @contextlib.contextmanager
 def pprint_ordered():
@@ -543,8 +532,7 @@ Returns:
 
     # ordered dict -> show as json would?
     if ignore_builtin and isinstance(obj, OrderedDict):
-        with pprint_OrderedDict():
-            pprint.pprint(obj, indent=2, width=2)
+        pprint.pprint(obj, indent=2, width=2, sort_dicts=False)
         return
 
     # TODO: print members of a module
