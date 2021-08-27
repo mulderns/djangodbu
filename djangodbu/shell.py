@@ -626,20 +626,20 @@ Returns:
                         item_id, datas = _print_minimal_values(row, values, additional=callable_value, truncate=truncate)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
-                        lines.append(('{:6}'.format(item_id), datas))
+                        lines.append(('{:6}'.format(str(item_id)), datas))
                 elif callables:
                     for row, row_object in zip(page.values('pk', *values), page):
                         values_callable = [(call, get_callable_value(row_object, call)) for call in callables]
                         item_id, datas = _print_minimal_values(row, values, additional=values_callable, truncate=truncate)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
-                        lines.append(('{:6}'.format(item_id), datas))
+                        lines.append(('{:6}'.format(str(item_id)), datas))
                 else:
                     for row in page.values('pk', *values):
                         item_id, datas = _print_minimal_values(row, values, truncate=truncate)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
-                        lines.append(('{:6}'.format(item_id), datas))
+                        lines.append(('{:6}'.format(str(item_id)), datas))
 
                 #print ''.join( v, w in zip(values, col_max) )
 
@@ -1257,7 +1257,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
 
     # print object identifier
     if stream is not None:
-        stream.write( ("{} : {}\n".format(uni(obj), type(obj))).encode('utf-8') )
+        stream.write( ("{} : {}\n".format(uni(obj), type(obj))) )
     else:
         print_asc("{} : {}".format(uni(obj), type(obj)))
 
