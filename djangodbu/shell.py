@@ -667,7 +667,7 @@ Returns:
                 if done < total:
                     try:
                         while True:
-                            userinput = input("-- {} ({}) / {} ({}) -- ".format(done, done//results_per_page, total, int(ceil(total/float(results_per_page)))))
+                            userinput = input("-- {} ({}) / {} ({}) -- ".format(done, int(done//results_per_page), total, int(ceil(total/float(results_per_page)))))
                             if userinput.startswith('q'):
                                 pagenum = -1
                                 break
@@ -718,7 +718,7 @@ Returns:
                 if done < total:
                     try:
                         while True:
-                            userinput = input("-- {} ({}) / {} ({}) -- ".format(done, done/results_per_page, total, int(ceil(total/float(results_per_page)))))
+                            userinput = input("-- {} ({}) / {} ({}) -- ".format(done, int(done/results_per_page), total, int(ceil(total/float(results_per_page)))))
                             if userinput.startswith('q'):
                                 pagenum = -1
                                 break
@@ -777,6 +777,10 @@ def paginateQuerySet(queryset, pagerowcount, autosense=True, disable=False):
         yield None, None, queryset
         return
     # print "paginating {}/{}".format(total, pagerowcount)
+
+    # set explicit order_by id if not specified (to silence warning)
+    if not queryset.ordered:
+        queryset = queryset.order_by('id')
 
     paginator = Paginator(queryset, pagerowcount)
     total = paginator.count # excecute query
