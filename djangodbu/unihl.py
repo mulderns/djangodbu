@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from dbu.detectnonascii import TRANSLATE_TABLE
-
-
 _unicode_trouble = {
     'spaces': [
         '\u2000',
