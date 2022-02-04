@@ -349,7 +349,7 @@ def _extract_model(obj):
     m = re.match(r"<class '([A-Za-z.]*)\.(.*)'>", obj_repr)
     return m.groups() if m else (None, None)
 
-def type_to_category_value(thing):
+def type_to_category_value(thing, hluni=False):
     if inspect.ismodule(thing):
         #print "module", uni(thing.__name__)
         return ('CLASS', uni(thing.__name__))
@@ -376,7 +376,7 @@ def type_to_category_value(thing):
         return ('STRING', uni(thing).replace('\n', '␤').replace('\r', '␍'))
     if isinstance(thing, str):
         #print "unicode", thing
-        return ('STRING', thing.replace('\n', '␤').replace('\r', '␍'))
+        return ('STRING', thing.replace('\n', '␤').replace('\r', '␍') if not hluni else symbolize(thing))
     if isinstance(thing, list):
         #print "list"
         return ('LIST', len(thing))
@@ -468,7 +468,9 @@ def dorm(
     references_only=False,
     qs_values=False,
     asc=False,
-    annotate=None):
+    annotate=None,
+    hluni=False,
+):
     """
 Debug django ORM. pretty prints:
   - Model instances
@@ -762,7 +764,7 @@ Returns:
     # else print orm debug
     if search is None and s is not None:
         search = s
-    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=50 if truncate is None and not (values_only or references_only) else truncate, search=search, stream=stream, references_only=references_only, asc=asc)
+    _print_orm(obj, ignore_builtin=ignore_builtin, values_only=values_only, padding=padding, color=color, truncate=50 if truncate is None and not (values_only or references_only) else truncate, search=search, stream=stream, references_only=references_only, asc=asc, hluni=hluni)
 
 
 def dormmm(obj, ignore_builtin=True, values_only=False, minimal=False, padding=0, callable=None, values=None, v=None, color=True, autoquery=True, truncate=None, search=None, s=None, stream=None):
@@ -1249,7 +1251,7 @@ def calculate_width(groups):
 
 
 # TODO: fix unicode / str : convert all str to unicode
-def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None, stream=None, references_only=False, asc=False):
+def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=True, truncate=None, search=None, stream=None, references_only=False, asc=False, hluni=False):
     colors_category = NOCOLORS_CATEGORY if not color else get_COLORS_CATEGORY()
 
     supported_encoding = detect_encoding()
@@ -1275,7 +1277,7 @@ def _print_orm(obj, ignore_builtin=True, values_only=False, padding=0, color=Tru
         attr = None
         try:
             attr = getattr(obj, attr_name)
-            cat, val = type_to_category_value(attr)
+            cat, val = type_to_category_value(attr, hluni=hluni)
         except Exception as e:
             print_asc("exception: {}".format(e))
             cat = 'ERROR'
@@ -1534,3 +1536,4 @@ def _calc_layout_height(layout):
 
 
 from .utils import uni, get_subqueus_req
+from .unihl import symbolize

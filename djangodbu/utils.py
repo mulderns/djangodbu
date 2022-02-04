@@ -239,7 +239,10 @@ def uni(thing):
             # log.debug(' not utf-8')
             result = chardet.detect(thing)
             charenc = result['encoding']
-            return thing.decode(charenc, 'replace')
+            if charenc:
+                return thing.decode(charenc, 'replace')
+            else:
+                return '<undecodable bytes>'
 
     if isinstance(thing, (int, float)):
         # log.debug(u'number: {}'.format(thing))
