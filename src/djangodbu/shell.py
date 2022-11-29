@@ -4,7 +4,8 @@
 
 import sys
 import inspect
-import pprint, contextlib
+import pprint
+import contextlib
 
 import re
 import types
@@ -17,6 +18,17 @@ from datetime import datetime
 class MultiValueDict(object):
     pass
 
+# @contextlib.contextmanager
+# def pprint_OrderedDict():
+#     pp_orig = pprint._sorted
+#     od_orig = OrderedDict.__repr__
+#     try:
+#         pprint._sorted = lambda x:x
+#         OrderedDict.__repr__ = dict.__repr__
+#         yield
+#     finally:
+#         pprint._sorted = pp_orig
+#         OrderedDict.__repr__ = od_orig
 
 @contextlib.contextmanager
 def pprint_ordered():
@@ -33,7 +45,7 @@ def _sanitize_defaultdicts_list(l):
     return l
 
 def _sanitize_defaultdicts_dict(d):
-    if isinstance(d, (defaultdict, Counter)):
+    if isinstance(d, (defaultdict, Counter, OrderedDict)):
         d = dict(d)
     for k, v in d.items():
         d[k] = sanitize_defaultdicts(v)
@@ -445,7 +457,6 @@ def dormm(obj, ignore_builtin=True, values_only=True, minimal=False, padding=0, 
 
 # TODO: paginate=True/False
 # TODO: search -> search dicts / lists ?
-# TODO: escape newlines -> ↵
 # TODO: dormv -> values only -> dont show types, ids, functions, put values first
 def dorm(
     obj,
@@ -506,7 +517,7 @@ Returns:
 
 
     # print lists and such with pprint
-    if ignore_builtin and type(obj) in (list, dict, tuple) or isinstance(obj, set):
+    if ignore_builtin and type(obj) in (list, dict, tuple, defaultdict, OrderedDict) or isinstance(obj, set):
         if values_only and stream is not None:
             terminal_width = get_terminal_size()[0]
             pprint.pprint(obj, indent=2, width=terminal_width - padding, stream=stream)
@@ -519,9 +530,9 @@ Returns:
                 pprint.pprint(obj2, indent=2, width=2)
         return
 
-    if ignore_builtin and isinstance(obj, defaultdict):
-        pprint.pprint(dict(obj), indent=2, width=2)
-        return
+    # if ignore_builtin and isinstance(obj, defaultdict):
+    #     pprint.pprint(dict(obj), indent=2, width=2)
+    #     return
 
     if ignore_builtin and isinstance(obj, MultiValueDict):
         pprint.pprint([(k, v) for (k, v) in obj.items()], indent=2, width=2)
@@ -534,6 +545,7 @@ Returns:
 
     # ordered dict -> show as json would?
     if ignore_builtin and isinstance(obj, OrderedDict):
+        # with pprint_OrderedDict():
         pprint.pprint(obj, indent=2, width=2, sort_dicts=False)
         return
 
@@ -551,7 +563,11 @@ Returns:
     if isinstance(obj, QuerySet) and ignore_builtin:
         lines_printed = 0
         if v is not None and values is None:
-            values = [val.strip() for val in v.split(',')]
+            if '(' in v:
+                values = parse_parens_notation(v)
+                print(f'values: {values}')
+            else:
+                values = [val.strip() for val in v.split(',')]
 
         if c is not None and callables is None:
             callables = [call.strip() for call in c.split(',')]
@@ -564,6 +580,7 @@ Returns:
             results_per_page = get_terminal_size()[1]-3
             #terminal_width = get_terminal_size()[0]
             pagenum = 0
+
             for total, done, page in paginateQuerySet(obj, results_per_page, disable=not paginate):
                 if pagenum != 0:
                     if pagenum == -1:
@@ -621,24 +638,26 @@ Returns:
 
                     return
 
+                except Exception as e:
+                    print(e)
 
                 if callable:
                     for row, row_object in zip(page.values('pk', *values), page):
                         callable_value = get_callable_value(row_object, callable)
-                        item_id, datas = _print_minimal_values(row, values, additional=callable_value, truncate=truncate)
+                        item_id, datas = _print_minimal_values(row, values, additional=callable_value, truncate=truncate, hluni=hluni)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
                         lines.append(('{:6}'.format(str(item_id)), datas))
                 elif callables:
                     for row, row_object in zip(page.values('pk', *values), page):
                         values_callable = [(call, get_callable_value(row_object, call)) for call in callables]
-                        item_id, datas = _print_minimal_values(row, values, additional=values_callable, truncate=truncate)
+                        item_id, datas = _print_minimal_values(row, values, additional=values_callable, truncate=truncate, hluni=hluni)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
                         lines.append(('{:6}'.format(str(item_id)), datas))
                 else:
                     for row in page.values('pk', *values):
-                        item_id, datas = _print_minimal_values(row, values, truncate=truncate)
+                        item_id, datas = _print_minimal_values(row, values, truncate=truncate, hluni=hluni)
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
                         lines.append(('{:6}'.format(str(item_id)), datas))
@@ -782,7 +801,8 @@ def paginateQuerySet(queryset, pagerowcount, autosense=True, disable=False):
 
     # set explicit order_by id if not specified (to silence warning)
     if not queryset.ordered:
-        queryset = queryset.order_by('id')
+        if hasattr(queryset.model, 'id'): queryset = queryset.order_by('id')
+        elif hasattr(queryset.model, 'pk'): queryset = queryset.order_by('pk')
 
     paginator = Paginator(queryset, pagerowcount)
     total = paginator.count # excecute query
@@ -799,7 +819,7 @@ def paginateQuerySet(queryset, pagerowcount, autosense=True, disable=False):
             on_page += 1
 
 
-def _print_minimal_values(values_row, selected_values, additional=None, truncate=40):
+def _print_minimal_values(values_row, selected_values, additional=None, truncate=40, hluni=False):
     '''values_row has contents of qs.values(...)'''
     item_id = values_row.pop('pk')
     values2 = []
@@ -807,7 +827,7 @@ def _print_minimal_values(values_row, selected_values, additional=None, truncate
     for key in selected_values:
         data = values_row.get(key)
         if isinstance(data, str):
-            values2.append(nice_string(data, maxlen=truncate))
+            values2.append(nice_string(data, maxlen=truncate, show_whitespace=hluni))
         #     values2.append(unicode(data.decode('utf-8', 'replace'), 'utf-8', 'replace') + 'X')
         # elif isinstance(data, unicode):
         #     #values2.append(data.encode('utf-8', 'replace') + 'Z')
@@ -1032,7 +1052,8 @@ def get_value_attribute_names(qs):
 
 def nice_string(text, maxlen=0, show_whitespace=False):
     if show_whitespace:
-        raise Exception('not implemented')
+        # raise Exception('not implemented')
+        text = symbolize(text)
     else:
         text = text.replace('\n', ' ').replace('\t', ' ')
 
@@ -1131,6 +1152,7 @@ def squish_to_size2(string, size):
 
             string = string[:-1]
     return string
+
 
 
 import itertools, sys
@@ -1535,5 +1557,5 @@ def _calc_layout_height(layout):
 # from .utils import ruler
 
 
-from .utils import uni, get_subqueus_req
+from .utils import uni, get_subqueus_req, parse_parens_notation
 from .unihl import symbolize

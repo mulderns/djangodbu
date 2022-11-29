@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
+import io
 
 from .shell import RED_B, RESET, GREEN_B, BLUE_B, BLACK_B, YELLOW_B, GREEN, RED
 
@@ -162,6 +162,29 @@ _encodings = [
     'ISO-8859-15',
 ]
 
+_bytes_mapping = {
+    9: '→',
+    10: '␤',
+    13: '␍',
+}
+
+def format_bytes(data):
+    was_ascii = False
+    buff = io.StringIO()
+    for c in data:
+        if 31 < c < 127:
+            buff.write(chr(c))
+            was_ascii = True
+        elif was_ascii and (c in (10, 13, 9)):
+            buff.write(f'\033[0;90m{_bytes_mapping[c]}\033[0m')
+        else:
+            # buff.write('\\' + hex(c)[])
+            # buff.write(rf'\x{c:02x}')
+            buff.write(f'\033[0;90m{c:02x}\033[0m')
+            was_ascii = False
+
+    return buff.getvalue()
+
 
 def ascfix(input_text):
     if isinstance(input_text, bytes):
@@ -236,13 +259,18 @@ def uni(thing):
         try:
             return thing.decode('utf-8')
         except UnicodeDecodeError as e:
-            # log.debug(' not utf-8')
-            result = chardet.detect(thing)
-            charenc = result['encoding']
-            if charenc:
-                return thing.decode(charenc, 'replace')
-            else:
-                return '<undecodable bytes>'
+
+            return format_bytes(thing)
+
+            # # log.debug(' not utf-8')
+            # result = chardet.detect(thing)
+            # charenc = result['encoding']
+            # if charenc:
+            #     return thing.decode(charenc, 'replace')
+            # else:
+            #     return '<undecodable bytes>'
+
+
 
     if isinstance(thing, (int, float)):
         # log.debug(u'number: {}'.format(thing))
@@ -356,7 +384,7 @@ Colors:
     if rev is not None and rev: command.append('7')
     if rev is not None and not rev: command.append('27')
     # if con: command.append('8')
-    # if cross: command.append('9')
+    if cross: command.append('9')
 
     if fg:
         command.append(str(getattr(cols, fg)[0]))
@@ -387,6 +415,17 @@ def print_colors():
           'BRIGHT   ' + \
           'FAINT    ' + \
           'REVERSE  ')
+
+    print('{name:9}{norm}{name:9}{rst}{bold}{name:9}{rst}{bright}{name:9}{rst}{faint}{name:9}{rst}{rev}{name:9}{rst}'.format(
+        name="text",
+        rst=shc(),
+        norm=shc(),
+        bold=shc(bold=True),
+        bright='',
+        faint=shc(faint=True),
+        rev=shc(rev=True),
+    ))
+
     for c in colornames:
         print('{name:9}{norm}{name:9}{rst}{bold}{name:9}{rst}{bright}{name:9}{rst}{faint}{name:9}{rst}{rev}{name:9}{rst}'.format(
             name=c,
@@ -429,7 +468,7 @@ def ddiff(da, db, annotate=None):
             elif isinstance(va, str) and isinstance(vb, str):
                 pass
             else:
-                print('{}: MOD  {} - {}'.format(k, type(va),type(vb)))
+                print('{} ~ {}: MOD  {} -> {}'.format(path, k, type(va),type(vb)))
                 continue
 
         if isinstance(va, (tuple, list)):
@@ -446,7 +485,7 @@ def ddiff(da, db, annotate=None):
             vb = smart_text(vb)
 
         if va != vb:
-            print('{}: MOD  {} - {}'.format(k, va, vb))
+            print('{} ~ {}: MOD  {} -> {}'.format(path, k, va, vb))
 
 def ldiff(la, lb, annotate=None):
     if len(la) != len(lb):
@@ -455,5 +494,50 @@ def ldiff(la, lb, annotate=None):
 
     for i, (va, vb) in enumerate(zip(la, lb)):
         if va != vb:
-            print('{} DIFF  {} - {}'.format('[{}][{}]'.format(annotate, i), va, vb))
+            print('{} DIFF  {} -> {}'.format('[{}][{}]'.format(annotate, i), va, vb))
 
+
+def parse_parens_notation(text):
+    '''
+    'asdf, bsdf(csdf), dsdf(esdf, hsdf), isdf(jsdf(ksdf))'
+    ->
+    'asdf', 'bsdf__csdf', 'dsdf__esdf', 'dsdf__hsdf', 'isdf__jsdf__ksdf'
+    '''
+    a = 0
+    prev_levels = []
+    current_level = []
+
+    for i, c in enumerate(text):
+        if c in ',()':
+            chunk = text[a: i].strip()
+            # print(f"'{chunk}'")
+            if chunk: current_level.append(chunk)
+            a = i + 1
+
+            if c == '(':
+                # print(' >')
+                prev_levels.append(current_level)
+                current_level = []
+
+            elif c == ')':
+                # print(' <')
+                if not prev_levels:
+                    raise Exception(f'unexpected ) at {i}')
+                children = current_level
+                current_level = prev_levels.pop()
+                parent = current_level.pop()
+                current_level.extend([f'{parent}__{child}' for child in children])
+
+            # print(f':: {current_level}   : {prev_levels}')
+
+        else: pass
+
+    if prev_levels:
+        raise Exception('unclosed (')
+
+    if a != len(text):
+        chunk = text[a:].strip()
+        if chunk:
+            current_level.append(chunk)
+
+    return current_level
