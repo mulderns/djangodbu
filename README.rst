@@ -25,8 +25,8 @@ highlight - list / dict / tuple through pprint
 Requirements
 ------------
 
--  Python 2
--  Django
+-  Python 3
+-  (Django)
 -  sqlparse
 
 Installation

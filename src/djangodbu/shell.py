@@ -642,25 +642,34 @@ Returns:
                     print(e)
 
                 if callable:
+                    prev_id = None
                     for row, row_object in zip(page.values('pk', *values), page):
                         callable_value = get_callable_value(row_object, callable)
                         item_id, datas = _print_minimal_values(row, values, additional=callable_value, truncate=truncate, hluni=hluni)
+                        if item_id == prev_id: item_id = f'{_CLR.BLACK_B}{item_id:<6}'
+                        else: prev_id = item_id
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
-                        lines.append(('{:6}'.format(str(item_id)), datas))
+                        lines.append((f'{str(item_id):<6}', datas))  # str because uuid will error for format
                 elif callables:
+                    prev_id = None
                     for row, row_object in zip(page.values('pk', *values), page):
                         values_callable = [(call, get_callable_value(row_object, call)) for call in callables]
                         item_id, datas = _print_minimal_values(row, values, additional=values_callable, truncate=truncate, hluni=hluni)
+                        if item_id == prev_id: item_id = f'{_CLR.BLACK_B}{item_id:<6}'
+                        else: prev_id = item_id
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
-                        lines.append(('{:6}'.format(str(item_id)), datas))
+                        lines.append((f'{str(item_id):<6}', datas))
                 else:
+                    prev_id = None
                     for row in page.values('pk', *values):
                         item_id, datas = _print_minimal_values(row, values, truncate=truncate, hluni=hluni)
+                        if item_id == prev_id: item_id = f'{_CLR.BLACK_B}{item_id:<6}'
+                        else: prev_id = item_id
                         widths = [lenesc(x) for x in datas]
                         col_max = [max(x) for x in zip(col_max, widths)]
-                        lines.append(('{:6}'.format(str(item_id)), datas))
+                        lines.append((f'{str(item_id):<6}', datas))
 
                 #print ''.join( v, w in zip(values, col_max) )
 

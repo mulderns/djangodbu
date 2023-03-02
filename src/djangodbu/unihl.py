@@ -66,7 +66,7 @@ symbols = {
 
 
 C = '\x1b[0;31m'  #if not no_color else ''
-E = '\x1b[0;35m'  #if not no_color else ''
+E = '\x1b[7;35m'  #if not no_color else ''
 B = '\x1b[30;41m' #if not no_color else ''
 R = '\033[0m'     #if not no_color else ''
 
@@ -107,3 +107,4 @@ def symbolize(text, no_color=False):
     if not isinstance(text, str): return text
     return text.translate(TRANSLATE_TABLE_COLOR) #if not no_color else TRANSLATE_TABLE)
 
+__all__ = ['symbolize']

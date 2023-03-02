@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "djangodbu"
-version = "0.1.5"
+version = "0.1.6"
 authors = [
-  { name="Valtteri Kortesmaa", email="mulderns@iki.fi" },
+  { name="Valtteri Kortesmaa", email="mulperns+please-remove-this-part-and-change-p-to-d@iki.fi" },
 ]
 description = "Tools for debugging Django ORM, pprint models"
 readme = "README.md"
